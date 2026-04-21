@@ -1,0 +1,26 @@
+{
+  "name": "digit-integration-tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:citizen": "playwright test tests/specs/citizen-login.spec.ts",
+    "test:employee": "playwright test tests/specs/employee-login.spec.ts",
+    "test:pgr": "playwright test tests/specs/full-pgr-lifecycle.spec.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChakshuGautam/digit-integration-tests.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ChakshuGautam/digit-integration-tests/issues"
+  },
+  "homepage": "https://github.com/ChakshuGautam/digit-integration-tests#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
