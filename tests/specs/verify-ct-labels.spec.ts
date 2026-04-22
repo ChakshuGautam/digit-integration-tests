@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
-test('complaint type dropdown shows translated category names', async ({ page }) => {
+test('complaint type dropdown shows human-readable translated names', async ({ page }) => {
   test.setTimeout(90_000);
   const phone = generateCitizenPhone();
   await citizenOtpLogin(page, phone);
@@ -19,28 +19,24 @@ test('complaint type dropdown shows translated category names', async ({ page })
   await dropdown.click();
   await page.waitForTimeout(2000);
 
-  await page.screenshot({ path: '/tmp/ct-dropdown-after-fix.png', fullPage: true });
-
   // Get the dropdown items text
-  const dropdownInfo = await page.evaluate(() => {
-    const items = document.querySelectorAll(
+  const items = await page.evaluate(() => {
+    const els = document.querySelectorAll(
       '.option-des-container .main-option, .digit-dropdown-employee-select-wrap--item'
     );
-    const results: { text: string; html: string }[] = [];
-    items.forEach(el => {
-      results.push({
-        text: el.textContent?.trim() || '(empty)',
-        html: el.innerHTML?.slice(0, 200) || '',
-      });
-    });
-    return { count: results.length, items: results.slice(0, 25) };
+    return Array.from(els).map(el => el.textContent?.trim() || '');
   });
 
-  console.log('Dropdown items:', JSON.stringify(dropdownInfo, null, 2));
+  console.log('Dropdown items:', items);
 
-  // Verify items are not empty
-  expect(dropdownInfo.count).toBeGreaterThan(0);
-  const nonEmptyItems = dropdownInfo.items.filter(i => i.text !== '(empty)' && i.text.length > 0);
-  console.log(`Non-empty items: ${nonEmptyItems.length} / ${dropdownInfo.count}`);
-  expect(nonEmptyItems.length).toBe(dropdownInfo.count);
+  // Must have items
+  expect(items.length).toBeGreaterThan(0);
+
+  // Every item must be non-empty
+  const emptyItems = items.filter(t => t.length === 0);
+  expect(emptyItems, 'Some dropdown items are blank').toHaveLength(0);
+
+  // No item should show a raw i18n key (e.g. "SERVICEDEFS.PARKING")
+  const rawKeys = items.filter(t => t.startsWith('SERVICEDEFS.') || t.startsWith('CS_'));
+  expect(rawKeys, `Raw i18n keys found: ${rawKeys.join(', ')}`).toHaveLength(0);
 });
