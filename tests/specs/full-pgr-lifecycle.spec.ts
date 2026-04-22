@@ -6,10 +6,12 @@
  *   2.  Citizen logs in via UI (auto-register + fixed OTP)
  *   3.  Citizen creates PGR complaint (UI wizard with API fallback)
  *   4.  Admin sees complaint in PGR inbox (UI)
- *   5.  Admin assigns complaint to employee via API
- *   6.  Employee resolves complaint via API
+ *   5.  Admin assigns complaint via API
+ *   6.  Admin resolves complaint via API
  *   7.  Verify RESOLVED status (API)
  *   8.  Citizen sees complaint on complaints page (UI)
+ *   9.  Admin assigns a NEW complaint via UI (Take Action → Assign modal)
+ *  10.  Admin resolves that complaint via UI (Take Action → Resolve modal)
  *
  * All env vars are configurable — see .env.example.
  * Run: npx playwright test tests/specs/full-pgr-lifecycle.spec.ts
@@ -21,6 +23,7 @@ import {
   BASE_URL, TENANT, ROOT_TENANT,
   ADMIN_USER, ADMIN_PASS, FIXED_OTP,
   SERVICE_CODE, LOCALITY_CODE,
+  DEFAULT_PASSWORD,
   generateCitizenPhone,
 } from '../utils/env';
 
@@ -38,6 +41,10 @@ async function snap(page: Page, name: string) {
 
 const CITIZEN_PHONE = generateCitizenPhone();
 const CITIZEN_NAME = 'E2E Lifecycle Citizen';
+
+// City-level admin for UI tests (getCurrentTenantId returns ke.nairobi)
+const CITY_ADMIN_USER = process.env.CITY_ADMIN_USER || 'EMP-KE_NAIROBI-000089';
+const CITY_ADMIN_PASS = process.env.CITY_ADMIN_PASS || DEFAULT_PASSWORD;
 
 /** Fetch the full PGR service object (needed for _update calls). */
 async function fetchComplaint(token: string, userInfo: Record<string, unknown>, serviceRequestId: string): Promise<any> {
@@ -484,5 +491,156 @@ test.describe.serial('Full PGR lifecycle — citizen, admin, employee', () => {
     const finalText = await page.locator('body').innerText();
     expect(finalText).toContain(serviceRequestId);
     console.log(`Citizen complaints page shows ${serviceRequestId}`);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  UI-based assign + resolve (uses city-level admin so tenant is correct)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  let uiComplaintId: string;
+  let uiComplaintCreated = false;
+
+  // ─── 9. Create a fresh complaint for the UI assign/resolve flow ───────
+
+  test('9 — create complaint for UI assign/resolve flow', async () => {
+    // Use the citizen token from step 2 to create a fresh PENDINGFORASSIGNMENT complaint
+    test.skip(!citizenLoggedIn, 'citizen not logged in');
+
+    uiComplaintId = await createComplaintViaApi(citizenToken, citizenUserInfo);
+    expect(uiComplaintId).toBeTruthy();
+    uiComplaintCreated = true;
+    console.log(`Fresh complaint for UI tests: ${uiComplaintId}`);
+  });
+
+  // ─── 10. Admin assigns complaint via UI ──────────────────────────────
+
+  test('10 — admin assigns complaint via UI', async ({ page }) => {
+    test.skip(!uiComplaintCreated, 'UI complaint not created');
+    test.setTimeout(120_000);
+
+    // Login as city-level admin (tenantId = ke.nairobi)
+    await loginViaApi(page, {
+      tenant: TENANT,
+      authTenant: TENANT,
+      username: CITY_ADMIN_USER,
+      password: CITY_ADMIN_PASS,
+    });
+
+    // Navigate to complaint details
+    console.log(`Navigating to complaint ${uiComplaintId}...`);
+    await page.goto(`${BASE_URL}/digit-ui/employee/pgr/complaint-details/${uiComplaintId}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+    await page.waitForTimeout(10_000);
+    await snap(page, '10a-complaint-before-assign');
+
+    // Verify complaint loaded
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText).toContain(uiComplaintId);
+
+    // Click "Take Action" button (may show translated or localization key)
+    console.log('Clicking Take Action...');
+    const takeAction = page.locator('button').filter({ hasText: /take action|ES_COMMON_TAKE_ACTION/i });
+    await expect(takeAction.first()).toBeVisible({ timeout: 10_000 });
+    await takeAction.first().click();
+    await page.waitForTimeout(2_000);
+
+    // Click "Assign" in the dropdown menu
+    console.log('Clicking Assign...');
+    const assignOption = page.locator('.header-dropdown-option').filter({ hasText: /^Assign$/i });
+    await expect(assignOption).toBeVisible({ timeout: 5_000 });
+    await assignOption.click();
+    await page.waitForTimeout(3_000);
+    await snap(page, '10b-assign-modal');
+
+    // Modal should be open with Employee Name + Comments fields
+    const modal = page.locator('[class*="modal"], [class*="Modal"], .popup-module');
+    await expect(modal.first()).toBeVisible({ timeout: 5_000 });
+    console.log('Assign modal opened');
+
+    // Fill in comments (required field)
+    const commentsField = modal.locator('textarea').first();
+    await expect(commentsField).toBeVisible({ timeout: 5_000 });
+    await commentsField.fill('Assigned via E2E UI test');
+
+    // Click SUBMIT
+    console.log('Submitting assign...');
+    const submitBtn = modal.locator('button').filter({ hasText: /submit/i });
+    await expect(submitBtn).toBeVisible({ timeout: 5_000 });
+    await submitBtn.click();
+
+    // Wait for the update to complete and page to refresh
+    await page.waitForTimeout(8_000);
+    await snap(page, '10c-after-assign');
+
+    // Verify status changed — check via API
+    const service = await fetchComplaint(adminToken, adminUserInfo, uiComplaintId);
+    expect(service.applicationStatus).toBe('PENDINGATLME');
+    console.log(`UI assign successful: ${uiComplaintId} → PENDINGATLME`);
+  });
+
+  // ─── 11. Admin resolves complaint via UI ─────────────────────────────
+
+  test('11 — admin resolves complaint via UI', async ({ page }) => {
+    test.skip(!uiComplaintCreated, 'UI complaint not created');
+    test.setTimeout(120_000);
+
+    // Login as city-level admin
+    await loginViaApi(page, {
+      tenant: TENANT,
+      authTenant: TENANT,
+      username: CITY_ADMIN_USER,
+      password: CITY_ADMIN_PASS,
+    });
+
+    // Navigate to complaint details
+    console.log(`Navigating to complaint ${uiComplaintId}...`);
+    await page.goto(`${BASE_URL}/digit-ui/employee/pgr/complaint-details/${uiComplaintId}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+    await page.waitForTimeout(10_000);
+    await snap(page, '11a-complaint-before-resolve');
+
+    // Click "Take Action" button (may show translated or localization key)
+    console.log('Clicking Take Action...');
+    const takeAction = page.locator('button').filter({ hasText: /take action|ES_COMMON_TAKE_ACTION/i });
+    await expect(takeAction.first()).toBeVisible({ timeout: 10_000 });
+    await takeAction.first().click();
+    await page.waitForTimeout(2_000);
+
+    // Click "Resolve" in the dropdown menu
+    console.log('Clicking Resolve...');
+    const resolveOption = page.locator('.header-dropdown-option').filter({ hasText: /^Resolve$/i });
+    await expect(resolveOption).toBeVisible({ timeout: 5_000 });
+    await resolveOption.click();
+    await page.waitForTimeout(3_000);
+    await snap(page, '11b-resolve-modal');
+
+    // Modal should be open with Comments field
+    const modal = page.locator('[class*="modal"], [class*="Modal"], .popup-module');
+    await expect(modal.first()).toBeVisible({ timeout: 5_000 });
+    console.log('Resolve modal opened');
+
+    // Fill in comments (required field)
+    const commentsField = modal.locator('textarea').first();
+    await expect(commentsField).toBeVisible({ timeout: 5_000 });
+    await commentsField.fill('Resolved via E2E UI test');
+
+    // Click SUBMIT
+    console.log('Submitting resolve...');
+    const submitBtn = modal.locator('button').filter({ hasText: /submit/i });
+    await expect(submitBtn).toBeVisible({ timeout: 5_000 });
+    await submitBtn.click();
+
+    // Wait for the update to complete
+    await page.waitForTimeout(8_000);
+    await snap(page, '11c-after-resolve');
+
+    // Verify status changed via API
+    const service = await fetchComplaint(adminToken, adminUserInfo, uiComplaintId);
+    expect(service.applicationStatus).toBe('RESOLVED');
+    console.log(`UI resolve successful: ${uiComplaintId} → RESOLVED`);
   });
 });
