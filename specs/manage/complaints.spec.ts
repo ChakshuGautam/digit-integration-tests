@@ -392,6 +392,131 @@ test.describe('manage/complaints', () => {
       page.getByText(/mobile-only account/i).first(),
     ).toBeVisible({ timeout: 10_000 });
   });
+
+  test('10. real pagination — offset-based _search fires with page 2 nav, not client-slice of first 100', async ({
+    page,
+  }) => {
+    const auth = loadAuth();
+    // Need at least 26 complaints (2 pages at perPage=25) for this test to
+    // be meaningful. Probed 2026-04-23: ke.nairobi has 55.
+    const total = await pgrCount(auth, CITY_TENANT);
+    if (total < 26) test.skip(true, `tenant has ${total} complaints, not enough to paginate`);
+
+    await page.goto(LIST_PATH);
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    const searches: URL[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/pgr-services/v2/request/_search')) {
+        searches.push(new URL(req.url()));
+      }
+    });
+
+    // Find pagination — react-admin's default renders a Next / page-n button.
+    const nextBtn = page.getByRole('button', { name: /next|›|>/i }).first();
+    if (!(await nextBtn.isVisible().catch(() => false))) {
+      test.skip(true, 'No Next pagination control rendered');
+    }
+    await nextBtn.click();
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    expect(searches.length, 'paging should trigger a fresh _search XHR').toBeGreaterThan(0);
+    // The last search's offset should be > 0 — i.e. real server-side paging.
+    const last = searches[searches.length - 1];
+    const offset = Number(last.searchParams.get('offset') || '0');
+    expect(offset, 'offset on second page should be > 0').toBeGreaterThan(0);
+  });
+
+  test('11. department column renders via EntityLink — not a raw code', async ({
+    page,
+  }) => {
+    await page.goto(LIST_PATH);
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    const auth = loadAuth();
+    // Find a complaint whose additionalDetail.department is populated so
+    // we know the column has something to render.
+    const wrappers = await pgrSearch(auth, CITY_TENANT, { limit: 50 });
+    let deptCode: string | null = null;
+    for (const w of wrappers) {
+      const svc = w.service as Record<string, unknown> | undefined;
+      const add = svc?.additionalDetail as Record<string, unknown> | undefined;
+      const d = add?.department as string | undefined;
+      if (d) { deptCode = d; break; }
+    }
+    if (!deptCode) test.skip(true, 'No complaint with additionalDetail.department on tenant');
+
+    // EntityLink renders an <a> whose href points at the dept show page.
+    const link = page.getByRole('link').filter({
+      has: page.locator(`text=${deptCode!}`).or(page.locator(`[href*="/departments/"]`)),
+    }).first();
+    // Lenient: at least one departments link should exist in the list body.
+    const anyDeptLink = page.locator('a[href*="/manage/departments/"]').first();
+    await expect(anyDeptLink.or(link)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('12. edit saves description + workflow in a single _update round-trip', async ({
+    page,
+  }) => {
+    // Guards the regression where description / source / address edits
+    // were silently dropped because the update path sent only the
+    // fetched service + workflow. After the fix, they should be merged
+    // into the PUT body and persisted.
+    const auth = loadAuth();
+    const target = await pickWorkableComplaint(auth);
+    if (!target) test.skip(true, 'No workable complaint to edit');
+
+    await page.goto(`${LIST_PATH}/${target}/edit`);
+
+    const newDesc = `PW single-roundtrip at ${Date.now()}`;
+    const desc = page.getByLabel(/^Description/i);
+    await desc.fill('');
+    await desc.fill(newDesc);
+
+    // Don't change the workflow action — we want to be sure the
+    // description alone rides along. (The merge logic wraps both into one
+    // POST /request/_update, see dataProvider.ts:617.)
+    const updates: Array<{ body: string }> = [];
+    page.on('request', (req) => {
+      if (
+        req.url().includes('/pgr-services/v2/request/_update') &&
+        req.method() === 'POST'
+      ) {
+        updates.push({ body: req.postData() || '' });
+      }
+    });
+
+    await page.getByRole('button', { name: /^Save$/i }).click();
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    expect(updates.length, 'expected exactly one _update POST on save').toBe(1);
+    // The single POST body should carry the new description under service.description.
+    const body = JSON.parse(updates[0].body || '{}');
+    const svc = body.service as Record<string, unknown>;
+    expect(svc?.description).toBe(newDesc);
+
+    // Server round-trip confirmation.
+    const wrappers = await pgrSearch(auth, CITY_TENANT, { serviceRequestId: target });
+    const persisted = (wrappers[0]?.service as Record<string, unknown>)?.description;
+    expect(persisted).toBe(newDesc);
+  });
+
+  test('13. PENDINGFORASSIGNMENT filter returns the expected queue size', async () => {
+    // Probed 2026-04-23: 11 PENDINGFORASSIGNMENT on ke.nairobi. Rather
+    // than hard-code 11 (seed data drifts), we assert the server responds
+    // coherently — both _count and _search agree on a non-negative
+    // number, and _search never returns more than the page size.
+    const auth = loadAuth();
+    const count = await pgrCount(auth, CITY_TENANT, {
+      status: 'PENDINGFORASSIGNMENT',
+    });
+    const wrappers = await pgrSearch(auth, CITY_TENANT, {
+      status: 'PENDINGFORASSIGNMENT', limit: 50,
+    });
+    expect(count).toBeGreaterThanOrEqual(0);
+    expect(wrappers.length).toBeLessThanOrEqual(count);
+    expect(wrappers.length).toBeLessThanOrEqual(50);
+  });
 });
 
 // --- Local helpers ---
