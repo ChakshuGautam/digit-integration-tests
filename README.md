@@ -1,6 +1,8 @@
 # DIGIT Integration Tests
 
-End-to-end Playwright tests for DIGIT PGR platform. Runs against any DIGIT deployment — configure via environment variables.
+End-to-end Playwright tests for DIGIT — PGR lifecycle (citizen + employee
+flows) and the configurator's manage surface (departments, designations,
+complaints). Runs against any DIGIT deployment; configured via env vars.
 
 ## Quick Start
 
@@ -8,8 +10,18 @@ End-to-end Playwright tests for DIGIT PGR platform. Runs against any DIGIT deplo
 npm install
 npx playwright install chromium
 
-# Run all tests against default environment (Nairobi)
-npx playwright test
+# Run everything against the default environment (Nairobi)
+npm test
+
+# Just the new manage-surface specs
+npm run test:manage
+npm run test:smoke
+
+# Interactive runner
+npm run test:ui
+
+# Sanity-check that all specs parse without running them
+npm run test:list
 
 # Run against a different deployment
 BASE_URL=https://bometfeedbackhub.digit.org \
@@ -17,6 +29,11 @@ DIGIT_TENANT=ke.bomet \
 LOCALITY_CODE=BOMET_SOTIK \
 npx playwright test
 ```
+
+The first run executes the `setup` project (auth.setup.ts) which logs into
+the configurator UI as `ADMIN/eGov@123` (override via `ADMIN_USER`,
+`ADMIN_PASSWORD`, `TENANT_CODE`) and writes `auth.json`. All other
+projects pick up `storageState: 'auth.json'`. `auth.json` is gitignored.
 
 ## Environment Variables
 
@@ -84,9 +101,33 @@ npx playwright test tests/specs/pgr-lifecycle-ui.spec.ts
 
 Dashboard configurator tests for PGR charting pages.
 
+### Configurator manage surface (`specs/manage/*.spec.ts`, `specs/smoke/*.spec.ts`)
+
+E2E coverage of `/configurator/manage/{departments,designations,complaints}`
+plus a smoke file that catches recently-cleaned hardcoding (no `'pg'`
+literals leaking into payloads, login placeholder shows `ke`, etc.).
+
+Every test that creates data uses a `PW_${hash}_${kind}` prefix and an
+`afterAll` that soft-deletes via the helpers (`mdms _update isActive=false`
+for masters, PGR `REJECT` workflow action for complaints). Tests pull
+live data dynamically — no hardcoded `ContractDispute` / `DEPT_14` /
+`PGR_LME assignee uuid`; if the tenant lacks an HRMS employee with the
+needed role, the relevant test calls `test.skip()` with a clear reason.
+
 ## Project Structure
 
 ```
+auth.setup.ts                         # UI login → auth.json (storageState)
+helpers/
+├── api.ts                            # Reads auth.json, exposes mdms/pgr/hrms
+├── codes.ts                          # PW_${hash}_${kind} per-test codes
+└── teardown.ts                       # cleanupMdms / cleanupPgrComplaints
+specs/
+├── smoke/hardcoding.spec.ts          # 4 hardcoding regression checks
+└── manage/
+    ├── departments.spec.ts           # 5 tests
+    ├── designations.spec.ts          # 6 tests
+    └── complaints.spec.ts            # 9 tests
 tests/
 ├── specs/
 │   ├── pgr-lifecycle-api.spec.ts     # Pure API lifecycle (5 tests)
@@ -102,6 +143,13 @@ tests/
     ├── citizen-login.ts              # Citizen OTP login helper
     └── env.ts                        # Environment config (all env vars)
 ```
+
+## CI
+
+`.github/workflows/e2e.yml` is `workflow_dispatch`-only for now — the
+manage-surface specs are still being stabilized and we don't want every
+PR to wake the suite against the live tenant. Trigger manually from the
+Actions tab once secrets `TEST_BASE_URL` and `ADMIN_PASSWORD` are set.
 
 ## Prerequisites
 
