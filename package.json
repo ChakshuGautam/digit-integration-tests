@@ -1,14 +1,18 @@
 {
   "name": "digit-integration-tests",
   "version": "1.0.0",
-  "description": "",
+  "description": "End-to-end Playwright tests for DIGIT (PGR lifecycle + configurator manage surface).",
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:list": "playwright test --list",
     "test:citizen": "playwright test tests/specs/citizen-login.spec.ts",
     "test:employee": "playwright test tests/specs/employee-login.spec.ts",
-    "test:pgr": "playwright test tests/specs/full-pgr-lifecycle.spec.ts",
-    "test:configurator": "playwright test tests/specs/configurator/"
+    "test:pgr": "playwright test tests/specs/pgr-lifecycle-ui.spec.ts",
+    "test:configurator": "playwright test tests/specs/configurator/",
+    "test:manage": "playwright test specs/manage",
+    "test:smoke": "playwright test specs/smoke"
   },
   "repository": {
     "type": "git",
@@ -22,6 +26,9 @@
   },
   "homepage": "https://github.com/ChakshuGautam/digit-integration-tests#readme",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^20.11.0",
+    "exceljs": "^4.4.0",
+    "typescript": "^5.4.0"
   }
 }
