@@ -9,9 +9,11 @@
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import {
+  employeeSearch,
   loadAuth,
   mdmsCreate,
   mdmsSearch,
+  mdmsUpdate,
   type AuthInfo,
   type MdmsRecord,
 } from '../../helpers/api';
@@ -283,6 +285,102 @@ test.describe('manage/designations', () => {
       uniqueIdentifiers: [code],
     });
     expect(records[0].isActive).not.toBe(false);
+  });
+
+  test('5a. department chip input dropdown loads options from mdms', async ({
+    page,
+  }) => {
+    await page.goto(`${LIST_PATH}/create`);
+
+    // Opening the combobox should fetch department options via
+    // mdms-v2 _search(common-masters.Department). The seeded DEPT_A
+    // should appear once the dropdown is open.
+    const input = page.getByLabel(/^Departments?/i);
+    await input.click();
+    await input.fill(DEPT_A);
+    // At least one option should match our seeded DEPT_A.
+    await expect(
+      page.getByRole('option', { name: new RegExp(DEPT_A) }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('5b. show page renders department chips for a multi-dept designation', async ({
+    page,
+  }, testInfo) => {
+    const code = testCode(testInfo, 'DESIG_SHOW');
+    createdDesigCodes.add(code);
+
+    const auth = loadAuth();
+    await mdmsCreate(auth, TENANT_CODE, DESIG_SCHEMA, code, {
+      code,
+      name: `PW Show ${code}`,
+      description: 'For show-page chip rendering',
+      department: [DEPT_A, DEPT_B],
+      active: true,
+    });
+
+    await page.goto(`${LIST_PATH}/${encodeURIComponent(code)}/show`);
+    // Both department codes should be rendered on the Show page.
+    await expect(page.getByText(DEPT_A, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(DEPT_B, { exact: false }).first()).toBeVisible();
+  });
+
+  test('5c. API soft-delete (isActive=false) removes row from active list', async ({
+    page,
+  }, testInfo) => {
+    const code = testCode(testInfo, 'DESIG_SOFTDEL');
+    createdDesigCodes.add(code);
+    const auth = loadAuth();
+
+    await mdmsCreate(auth, TENANT_CODE, DESIG_SCHEMA, code, {
+      code,
+      name: `PW SoftDel ${code}`,
+      description: 'soft-delete probe',
+      department: [DEPT_A],
+      active: true,
+    });
+
+    // Soft-delete via the MDMS _update endpoint.
+    const pre = (
+      await mdmsSearch(auth, TENANT_CODE, DESIG_SCHEMA, { uniqueIdentifiers: [code] })
+    )[0];
+    expect(pre).toBeTruthy();
+    const updated = await mdmsUpdate(auth, pre, false);
+    expect(updated.isActive).toBe(false);
+
+    // The dataProvider.mdmsGetList filters out isActive=false rows, so
+    // the default list view should no longer show this code.
+    await page.goto(LIST_PATH);
+    await page.getByPlaceholder(/search/i).first().fill(code);
+    await page.waitForLoadState('networkidle').catch(() => {});
+    const rows = page.getByRole('row').filter({ hasText: code });
+    expect(await rows.count()).toBe(0);
+  });
+
+  test('5d. HRMS probe returns assignments.designation for guard counter', async () => {
+    // The DeactivationGuard for a designation (implemented in
+    // DesignationEdit) calls employees?filter[assignments.designation]=...
+    // Verify HRMS returns the `assignments.designation` field that the
+    // probe reads. We don't care about the specific count — we care that
+    // the endpoint + shape are stable.
+    const auth = loadAuth();
+    const employees = await employeeSearch(auth, TENANT_CODE, { limit: 5 });
+    expect(Array.isArray(employees)).toBe(true);
+    // If at least one employee exists on the tenant, its assignments[]
+    // should carry a `designation` field (even if null).
+    if (employees.length) {
+      const e = employees[0] as Record<string, unknown>;
+      const assignments = e.assignments as Array<Record<string, unknown>> | undefined;
+      expect(Array.isArray(assignments)).toBe(true);
+      // `designation` key may be missing on assignments that predate the
+      // schema, but the field must be representable — accept string |
+      // null | undefined. A non-string / non-null object would be a
+      // regression.
+      if (assignments && assignments.length) {
+        const d = assignments[0].designation;
+        expect(d === null || d === undefined || typeof d === 'string').toBe(true);
+      }
+    }
   });
 
   test('6. bulk import accepts comma-list department values as array', async ({

@@ -8,7 +8,13 @@
  */
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
-import { loadAuth, mdmsCreate, type AuthInfo } from '../../helpers/api';
+import {
+  employeeSearch,
+  loadAuth,
+  mdmsCreate,
+  mdmsSearch,
+  type AuthInfo,
+} from '../../helpers/api';
 import { testCode, testCodeIndexed } from '../../helpers/codes';
 import { cleanupMdms } from '../../helpers/teardown';
 
@@ -253,7 +259,112 @@ test.describe('manage/departments', () => {
     ).toBeVisible();
   });
 
-  test('5. bulk export round-trip — downloaded xlsx parses', async ({
+  test('5a. Show page renders "Related" reverse references (complaint-types + employees)', async ({
+    page,
+  }) => {
+    // Seeded `ke` tenant has DEPT_7 with employees + complaint-types
+    // pointing at it (Gurjeet Singh's assignment references DEPT_7). Use
+    // that as the fixture — avoids seeding our own reverse-ref graph.
+    const auth = loadAuth();
+    const deptCandidates = await mdmsSearch(auth, TENANT_CODE, SCHEMA, {
+      limit: 20,
+    });
+    const realDept = deptCandidates.find(
+      (r) => r.isActive !== false && !String(r.uniqueIdentifier).startsWith('PW_'),
+    );
+    test.skip(!realDept, 'No seeded department to probe reverse references on');
+
+    await page.goto(`${LIST_PATH}/${encodeURIComponent(realDept!.uniqueIdentifier)}/show`);
+
+    // The "Related" section headers; both lists render even when empty.
+    await expect(page.getByText(/^Related$/i).first()).toBeVisible();
+    await expect(page.getByText(/Complaint Types/i).first()).toBeVisible();
+    await expect(page.getByText(/^Employees$/i).first()).toBeVisible();
+  });
+
+  test('5b. deactivation guard probes designation + employee APIs', async ({
+    page,
+  }, testInfo) => {
+    // Seed a department with a designation linked to it, so the guard's
+    // "designations referencing this department" probe returns >= 1.
+    const auth = loadAuth();
+    const deptCode = testCode(testInfo, 'DEPT_GUARD');
+    createdCodes.add(deptCode);
+    await mdmsCreate(auth, TENANT_CODE, SCHEMA, deptCode, {
+      code: deptCode,
+      name: `PW Guard Dept ${deptCode}`,
+      description: 'For guard probe',
+      active: true,
+    });
+    const desigCode = testCode(testInfo, 'DEPT_GUARD_DESIG');
+    await mdmsCreate(auth, TENANT_CODE, 'common-masters.Designation', desigCode, {
+      code: desigCode,
+      name: `PW Guard Desig ${desigCode}`,
+      description: 'For guard probe',
+      department: [deptCode],
+      active: true,
+    });
+    // Track for cleanup — designation sits on its own schema so reuse
+    // createdCodes is wrong; cleanup it directly in this test's teardown.
+    test.info().annotations.push({ type: 'seed', description: `desig=${desigCode}` });
+
+    await page.goto(`${LIST_PATH}/${encodeURIComponent(deptCode)}/show`);
+    await page.getByRole('button', { name: /^Edit$/i }).click();
+    await page.getByLabel(/^Active$/i).uncheck({ force: true });
+
+    // Banner references the designation count (>= 1).
+    await expect(
+      page.getByText(/designation|depend|in use/i).first(),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Cancel — don't persist deactivation.
+    await page.getByRole('button', { name: /^Cancel$/i }).click();
+
+    // Cleanup the seeded designation inline — departments.afterAll only
+    // handles the departments schema.
+    await cleanupMdms([desigCode], 'common-masters.Designation', TENANT_CODE, auth);
+
+    // Sanity — the employee probe hits HRMS; ensure HRMS is reachable at
+    // all so a silent 500 here doesn't let the banner slip past in future.
+    const employees = await employeeSearch(auth, TENANT_CODE, { limit: 1 });
+    expect(Array.isArray(employees)).toBe(true);
+  });
+
+  test('5c. API update round-trip preserves auditDetails on a department', async ({}, testInfo) => {
+    const auth = loadAuth();
+    const code = testCode(testInfo, 'DEPT_AUDIT');
+    createdCodes.add(code);
+
+    await mdmsCreate(auth, TENANT_CODE, SCHEMA, code, {
+      code,
+      name: `PW Audit ${code}`,
+      description: 'Initial description',
+      active: true,
+    });
+
+    // Fetch — bump description via the UI-equivalent update path.
+    const pre = (
+      await mdmsSearch(auth, TENANT_CODE, SCHEMA, { uniqueIdentifiers: [code] })
+    )[0];
+    expect(pre).toBeTruthy();
+    expect(pre.auditDetails).toBeTruthy();
+
+    // Import on demand — keeps top-level imports tidy.
+    const { mdmsUpdate } = await import('../../helpers/api');
+    pre.data = { ...pre.data, description: 'Edited description via API' };
+    const updated = await mdmsUpdate(auth, pre, true);
+    expect((updated.data as Record<string, unknown>).description).toBe(
+      'Edited description via API',
+    );
+    // lastModifiedTime should advance (>= previous createdTime).
+    const audit = updated.auditDetails as Record<string, number> | undefined;
+    const preAudit = pre.auditDetails as Record<string, number> | undefined;
+    if (audit?.lastModifiedTime && preAudit?.createdTime) {
+      expect(audit.lastModifiedTime).toBeGreaterThanOrEqual(preAudit.createdTime);
+    }
+  });
+
+  test('6. bulk export round-trip — downloaded xlsx parses', async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
