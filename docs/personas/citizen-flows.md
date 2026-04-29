@@ -1,391 +1,339 @@
 # Citizen UI — Flows & Stories Catalogue
 
-Catalogue of every citizen-facing page, component, and user action on the
-DIGIT PGR UI as deployed at `https://naipepea.digit.org/digit-ui/citizen/`.
-Source code reference: `theflywheel/digit-ui-esbuild` (citizen UI lives in
-`products/pgr/src/` and `packages/modules/{core,common}/src/citizen/`).
+Source-of-truth map between **citizen user journeys** and the specs under
+`tests/citizen/`. Each flow lists routes, page components, user actions,
+API calls, and edge cases — grounded in what the live citizen UI
+actually does, not what the source code suggests it might.
 
-This document is the source-of-truth map between **citizen user journeys**
-and the **specs in `tests/citizen/`**. The "Test-planning notes" section
-at the bottom lists which stories already have a test and which are gaps.
+> **Last validated**: 2026-04-29 against `http://localhost:18080/digit-ui/citizen/`
+> (digit-ui-esbuild dev server proxying naipepea backend).
+> Filed a real complaint (`NCCG-PGR-2026-04-29-013280`) end-to-end and
+> visited every reachable route.
 
-When stories drift (UI redesigns, new wizard steps, route renames),
-update this doc in the same PR as the corresponding spec changes.
+When stories drift (UI redesigns, new wizard steps, route renames,
+backend changes), update this doc in the same PR as the spec change so
+the map stays accurate.
 
 ## Provenance
 
-First compiled 2026-04-29 by an Explore agent walking the
-digit-ui-esbuild source, then spot-checked. The **flow set, component
-names, sub-component citations, and API endpoints are accurate**.
-**Specific line numbers** are sample-verified — most are off by ±10 lines
-due to file drift since the read window. Treat them as locator hints,
-not exact addresses; re-confirm before quoting in test code.
+Catalogue first compiled by an Explore agent walking the digit-ui-esbuild
+source on 2026-04-29, then walked in Chrome and rewritten to match the
+live UI. Inferred-from-source claims that didn't survive the browser walk
+are tracked as fix items in [issue #12](https://github.com/ChakshuGautam/digit-integration-tests/issues/12).
 
-When this catalogue is used to plan tests, verify the exact selector / line
-each test depends on against the live source first.
+**File-path references** in each story are locator hints —
+sample-verified, but most are off by ±10 lines due to source drift.
+Re-confirm against the current source before quoting any line in a test.
 
-## Browser validation — 2026-04-29
+## Citizen route table
 
-Every flow below was walked end-to-end in Chrome against
-`http://localhost:18080/digit-ui/citizen/` (digit-ui-esbuild dev server
-proxying to the naipepea backend). A fresh citizen `712345678` was
-auto-registered, filed a complaint (`NCCG-PGR-2026-04-29-013280`), and
-visited every reachable route. Status flags below each story:
+Base: `http://localhost:18080/digit-ui/citizen/` (or `https://naipepea.digit.org/digit-ui/citizen/` in production).
 
-- ✅ **verified** — observed behaviour matches the catalogue
-- ⚠ **corrected** — catalogue had a divergence; correction inline
-- ❌ **broken** — page errors out / dead handler on the live build
-- 🚫 **inferred** — couldn't validate (state-gated; e.g. rate requires RESOLVED)
-
-See `## Validation summary — 2026-04-29` at the bottom for the headline
-divergences (Profile is much smaller than catalogued; wizard has 6 steps
-not 8; FAQ + How-It-Works return error pages; etc.).
-
----
-
-## Citizen route table (verified — `products/pgr/src/constants/Routes.js`)
-
-Base: `/digit-ui/citizen/pgr/`
-
-| Route | Page |
+| Route | Purpose |
 |---|---|
-| `/complaints` | `ComplaintsList` |
-| `/complaint/details/:id` | `ComplaintDetailsPage` |
-| `/rate/:id*` | `SelectRating` |
-| `/create-complaint` (+ wizard sub-steps) | `CreatePGRFlow` (`FormExplorer`) |
-| `/create-complaint/response` | `Response` |
-| `/reopen` (root) | `ReopenComplaint` wrapper |
-| `/reopen/:id` | step 0 — Reason |
-| `/reopen/upload-photo/:id` | step 1 — UploadPhoto |
-| `/reopen/addional-details/:id` | step 2 — AdditionalDetails (note: typo `addional` in source) |
-| `/reopen/response` | step 3 — Response |
-| `/response` | post-rate Response |
+| `/citizen/` | Redirects to `/citizen/all-services` |
+| `/citizen/all-services` | **Default post-login landing.** "Citizen Complaint Resolution System" header + 2 yellow text links (File a Complaint, My Complaints). |
+| `/citizen/pgr-home` | **Branded "Nai Pepea" PGR module home.** Hero with "Report a grievance, track the resolution" tagline. The sidebar "Citizen Complaint R…" item links here. |
+| `/citizen/login` | Mobile-number entry (form titled "Provide your mobile number"). |
+| `/citizen/login/otp` | OTP entry (6 single-digit inputs). |
+| `/citizen/register` | Same form as login mobile entry, new-user path. |
+| `/citizen/register/otp` | OTP entry, new-user path. |
+| `/citizen/register/name` | Name + email entry, new-user path. |
+| `/citizen/select-language` | Language selection (not part of the default boot sequence on this build). |
+| `/citizen/user/profile` | Edit profile — Name + Gender + Email + photo. |
+| `/citizen/pgr/create-complaint/complaint-type` | **All 6 wizard steps** — URL doesn't change as steps advance. |
+| `/citizen/pgr/response` | Wizard confirmation ("Complaint Submitted" hero) AND post-rate response page (shared route). |
+| `/citizen/pgr/complaints` | "My Complaints" list. |
+| `/citizen/pgr/complaints/:id` | **Complaint detail page** (note: PLURAL — `Routes.js` exports `/complaint/details/:id` but the actually-mounted path is `/complaints/:id`). |
+| `/citizen/pgr/rate/:id` | Rate complaint (1–5 stars + feedback). |
+| `/citizen/pgr/reopen/:id` | Reopen complaint — multi-step wizard handled internally. |
+| `/citizen/pgr-faq` | ❌ Renders "Something went wrong" — issue #12. |
+| `/citizen/pgr-how-it-works` | ❌ Renders "Something went wrong" — issue #12. |
 
-Sub-paths inside the create-complaint wizard (declared but routed inside
-`FormExplorer`, not as discrete React routes):
-`/subtype`, `/location`, `/pincode`, `/address`, `/landmark`,
-`/upload-photos`, `/details`, `/response`.
+Routes declared in `products/pgr/src/constants/Routes.js` (`/subtype`, `/pincode`, `/landmark`, `/address`, `/upload-photo/:id`, `/addional-details/:id`) are **dead** — see issue #12.
 
-Module entry: `products/pgr/src/Module.js` — `CitizenApp` is the citizen
-route container (`./pages/citizen/index.js`).
+## Sidebar (after login)
+
+Items, top to bottom: avatar + mobile number, **Home** (→ /citizen/), **Citizen Complaint R…** (truncated, → /pgr-home), **Edit Profile** (→ /user/profile), **Logout** (modal), **HELPLINE** (renders raw key, click handler dead — issue #12).
+
+There is **no** header user-dropdown on this build. Header has only the language pill ("English") + bell icon.
 
 ---
 
-## Flow 1: Authentication & Onboarding
+## Flow 1: Authentication
 
-### Story 1.1: Select language
+### Story 1.1: Login — enter mobile number
 
-- **Route**: `/digit-ui/citizen/select-language`
-- **Page component**: `LanguageSelection` (`packages/modules/core/src/pages/citizen/Home/LanguageSelection.js`)
-- **Sub-components**: `PageBasedInput`, `RadioButtons`, `Loader`
-- **User actions**:
-  - Click language radio → selection highlighted
-  - Click "Continue" → `Digit.LocalizationService.changeLanguage()` + navigate to login
-- **Localization keys**: `CS_COMMON_CHOOSE_LANGUAGE`, `CORE_COMMON_CONTINUE`
-
-### Story 1.2: Register — enter mobile number
-
-- **Route**: `/digit-ui/citizen/register` (`isUserRegistered=false` branch in `packages/modules/core/src/pages/citizen/Login/index.js`)
+- **Route**: `/digit-ui/citizen/login`
 - **Page component**: `SelectMobileNumber` (`packages/modules/core/src/pages/citizen/Login/SelectMobileNumber.js`)
+- **Layout**: card on left side; form has heading "Provide your mobile number".
 - **User actions**:
-  - Type mobile → validated against `ValidationConfigs.mobileNumberValidation` MDMS
-  - Click "Send OTP" → `Digit.UserService.sendOtp()` (TYPE_REGISTER) → OTP screen
-- **API calls**: `POST /user-otp/v1/_send`
-- **Edge cases**: If `INDIVIDUAL_SERVICE_CONTEXT_PATH` env is set, OTP is skipped and the flow goes directly to name entry.
-- **Localization keys**: `CS_COMMON_MOBILE_NUMBER`, `CORE_COMMON_REQUIRED_ERRMSG`
+  - Mobile input shows `+254` as a non-typeable hint to the left of the field. Helper text below: "Enter your 10-digit mobile number" (count `N/10` updates as you type).
+  - Click **"Next"** → `Digit.UserService.sendOtp()` → navigates to `/citizen/login/otp`.
+  - "CS_LOGIN_REGISTER_WITH_EMAIL" link below the field — currently rendered as raw key (issue #12).
+- **API calls**: `POST /user-otp/v1/_send` (TYPE_LOGIN).
+- **Validation**: 10-digit mobile, Kenya pattern from MDMS `ValidationConfigs.mobileNumberValidation`.
 
-### Story 1.3: Register — enter OTP
+### Story 1.2: Login — enter OTP
 
-- **Route**: `/digit-ui/citizen/register/otp` (`Login/index.js` Route definition near line 410)
+- **Route**: `/digit-ui/citizen/login/otp`
 - **Page component**: `SelectOtp` (`packages/modules/core/src/pages/citizen/Login/SelectOtp.js`)
 - **User actions**:
-  - Type 6-digit OTP → presence validation
-  - Click "Resend OTP" → `resendOtp()` re-calls `sendOtp`
-  - Click "Submit" → `Digit.UserService.registerUser()` → `Digit.UserService.authenticate()`
-- **API calls**: `POST /user/_register`, `POST /user-otp/v1/_validate`
-- **Edge cases**: Auto-register-on-login fallback exists if a "login" attempt fails on an unregistered number.
-- **Localization keys**: `INVALID_OTP`, `OTP_RESEND_ERROR`
+  - 6 separate `maxlength=1` inputs auto-advance focus.
+  - "Resend another OTP N secs" countdown — clicking the link after countdown re-triggers send.
+  - Click **"Next"** → submits OTP via `Digit.UserService.authenticate()`. On success, redirects to `/citizen/all-services`.
+- **API calls**: `POST /user-otp/v1/_validate` (via authenticate).
+- **Edge cases**:
+  - Mobile number shown without `+254` prefix in the body text.
+  - On naipepea, **mock OTP `123456`** is accepted for any phone (Kong `request-termination` plugin).
+  - Auto-register-on-login fallback exists for unknown numbers.
 
-### Story 1.4: Register — enter name & email
+### Story 1.3: Register (auto-register on first OTP for unknown number)
 
-- **Route**: `/digit-ui/citizen/register/name`
-- **Page component**: `SelectName` (`packages/modules/core/src/pages/citizen/Login/SelectName.js`)
-- **User actions**:
-  - Type name (mandatory)
-  - Type email (optional)
-  - Click "Continue" → standard flow proceeds to OTP, custom flow (`INDIVIDUAL_SERVICE_CONTEXT_PATH`) calls `/v1/_register`
-- **Localization keys**: `CORE_COMMON_NAME`, `CORE_COMMON_EMAIL`
-
-### Story 1.5: Login (existing citizen)
-
-- **Route**: `/digit-ui/citizen/login` (`isUserRegistered=true` branch)
-- **Page component**: `SelectMobileNumber` → `SelectOtp` (same components as register, different `userType`)
-- **User actions**:
-  - Type mobile → "Send OTP" → `POST /user-otp/v1/_send` (TYPE_LOGIN)
-  - On naipepea, **OTP is fixed at `123456`** via Kong `request-termination` mock
-  - Type OTP → `Digit.UserService.authenticate()` issues an access token
-- **Edge cases**: Unregistered number → option to register surfaces; auto-register fallback path exists in code.
+- **Route**: `/digit-ui/citizen/register` → `/register/otp` → `/register/name`
+- **Behaviour**: enter mobile → OTP → if number is new, prompted for **Name** (mandatory) and **Email** (optional) on `/register/name` before landing on `/all-services`.
+- **API calls**: `POST /user/_register`, `POST /user-otp/v1/_validate`.
+- **Edge case**: Auto-register can also fire on the **login** path for an unknown number (covers Story 1.1 → registration flow).
 
 ---
 
 ## Flow 2: Home & Landing
 
-### Story 2.1: View home page with module cards
+### Story 2.1: All-services landing
 
-- **Route**: `/digit-ui/citizen/`
-- **Page component**: `CitizenHome` (`packages/modules/core/src/pages/citizen/Home/index.js`)
-- **Sub-components**: `TopBarSideBar`, `StaticCitizenSideBar`, `CardBasedOptions`, `ImageComponent`
-- **User actions**:
-  - Click "PGR / Complaints" tile → `/digit-ui/citizen/pgr`
-  - Sidebar module link → respective module home
-  - Header language button → `/digit-ui/citizen/select-language`
-  - Header user icon → `/digit-ui/citizen/user/profile`
-  - Header logout → clear user, redirect to login
-- **Data sources**:
-  - `uiHomePage` MDMS (banner, services card, WhatsApp banner)
-  - `ACCESSCONTROL-ACTIONS-TEST` MDMS (sidebar role-action map)
+- **Route**: `/digit-ui/citizen/all-services` (`/digit-ui/citizen/` redirects here).
+- **Page component**: `Allservices` (`packages/modules/core/src/pages/citizen/Allservices/index.js`).
+- **Content**: Title "Citizen Complaint Resolution System" + 2 yellow text links: **File a Complaint** (→ wizard step 1), **My Complaints** (→ list).
+- **User actions**: tile click → respective module home.
+- **Note**: This is the post-login default landing on this build, not a deep aux page.
 
-### Story 2.2: Switch language from header
+### Story 2.2: PGR module home (branded)
 
-- **Route**: any `/digit-ui/citizen/*`
-- **Component**: `TopBarSideBar` language dropdown (`packages/modules/common/src/components/TopBarSideBar/index.js`)
-- **User actions**: dropdown → select language → `Digit.LocalizationService.changeLanguage()` → re-render
+- **Route**: `/digit-ui/citizen/pgr-home`
+- **Content**: Hero banner with "**Nai Pepea**" headline, subtitle "Report a grievance, track the resolution", "Nairobi City County Government" tagline, "PGR" badge top-left. Below: "Citizen Complaint Resolution System" section with `My Complaints` and `File a Complaint` underline-style links.
+- **User actions**: deep-link entry to PGR; the sidebar "Citizen Complaint R…" item routes here.
+
+### Story 2.3: Header language pill
+
+- **Component**: top-right header pill, currently shows "English". Click reveals dropdown of available languages from `common-masters.StateInfo.languages` MDMS.
+- **User actions**: pick → `Digit.LocalizationService.changeLanguage()` → page re-renders.
 
 ---
 
-## Flow 3: File Complaint (wizard)
+## Flow 3: File Complaint (wizard — 6 steps)
 
-The wizard is a `FormComposerV2` driven by step configs declared in
-`products/pgr/src/pages/citizen/Create/FormExplorer.js` (configs array
-lists `createComplaint, pinComplaintLocaton, locationDetails,
-complaintsLocation, additionalDetails, complaintsUploadimages`).
+The wizard is a `FormComposerV2` driven by 6 step configs in
+`products/pgr/src/pages/citizen/Create/FormExplorer.js`. **URL stays at**
+`/digit-ui/citizen/pgr/create-complaint/complaint-type` **for all 6 steps**.
+Footer buttons: **NEXT** (yellow) + **BACK** (white outline). Step 6 swaps NEXT for **SUBMIT**.
 
-### Story 3.1: Pick "Myself" or "Another User"
+### Story 3.1: Complaint Details (Type + Subtype)
 
-- **Step config**: `selectComplaintType` (subtype branching)
-- **User actions**: Radio → `formData.complaintType` = `MYSELF` / `ANOTHER_USER` → "Next"
-- **Localization keys**: `ES_CREATECOMPLAINT_FOR`, `MYSELF`, `ANOTHER_USER`
+- **Step config**: `createComplaint` (`steps-config/CreateComplients.js`)
+- **Title**: "Complaint Details"
+- **Fields**:
+  - **Complaint Type \*** — dropdown. Values are unique `menuPath` from `RAINMAKER-PGR.ServiceDefs`, translated as `SERVICEDEFS.<UPPER>` (e.g. "Lands", "Innovation And Digital Economy", "Public Service").
+  - **Complaint Subtype \*** — dropdown. Filtered by selected Type. Values render in **raw UPPER_SNAKE** because subtype keys aren't seeded (issue #12) — e.g. `LAND OWNERSHIP DISPUTE`, `SURVEYING DELAY`.
+- **Data source**: `Digit.Hooks.useCustomMDMS(... RAINMAKER-PGR.ServiceDefs)`.
+- **Note**: catalogue once mentioned a "Myself / Another User" radio at the top — this step config exists in source as `selectComplaintType` but is **not wired** into `FormExplorer.configs`, so it doesn't render (issue #12).
 
-### Story 3.2: Select complaint type (service definition)
+### Story 3.2: Pin Complaint Location
 
-- **Step config**: `createComplaint` (`products/pgr/src/pages/citizen/Create/steps-config/CreateComplients.js`)
-- **Data source**: `RAINMAKER-PGR.ServiceDefs` MDMS, fetched via `Digit.Hooks.useCustomMDMS` in `FormExplorer`. Unique `menuPath` values are extracted and translated as `SERVICEDEFS.<UPPER_PATH>`.
-- **User actions**: Open dropdown → translated complaint-type list → select → `formData.SelectComplaintType = { code, menuPathName }`
-- **API calls**: `GET /MDMS/v2/search` (RAINMAKER-PGR.ServiceDefs) at module mount
-- **Localization keys**: `SERVICEDEFS.*`
+- **Step config**: `pinComplaintLocaton`
+- **Title**: "Pin Complaint Location"
+- **Component**: Leaflet map with reverse-geocoded address shown in a green box pointing at the pin.
+- **User actions**:
+  - Search bar above the map (autocomplete address search).
+  - Drag the pin to a different location → reverse-geocode updates.
+  - Recenter button (bottom-right circle icon) re-locates the pin.
+  - Click NEXT without touching the map → wizard advances cleanly (CCRS#469 fix verified by PR #9).
+- **Side effects**: address + postal code auto-populate downstream Location Details fields.
 
-### Story 3.3: Select location (cascading boundary)
+### Story 3.3: Location Details
 
-- **Step config**: `complaintsLocation` (`products/pgr/src/pages/citizen/Create/steps-config/ComplaintsLocation.js`)
-- **Component**: `PGRBoundaryComponent` (`products/pgr/src/components/BoundaryComponent.js`) — cascading dropdowns
-- **Data source**: `boundaryHierarchyOrder` from `SessionStorage`, populated by `usePGRInitialization` on module mount
-- **User actions**: Cascade County → Sub-County → Ward → Locality → `formData.SelectedBoundary`
-- **Localization keys**: `CS_ADDCOMPLAINT_COMPLAINT_LOCATION`, `CS_COMPLAINT_LOCATION`
+- **Step config**: `locationDetails`
+- **Title**: "Location Details"
+- **Fields** (all optional):
+  - **Address**
+  - **Address Line 1**
+  - **Landmark**
+  - **Postal Code** — pre-filled from step 2 reverse-geocode (e.g. `40476` for Nairobi CBD).
 
-### Story 3.4: Enter pincode + landmark
+### Story 3.4: Complaint's Location (boundary cascade)
 
-- **Step configs**: `pinComplaintLocaton`, `locationDetails`
-- **User actions**: Type pincode (5–6 digits, regex per Kenya pattern post-#478), type landmark/address — both optional
+- **Step config**: `complaintsLocation`
+- **Title**: "Complaint's Location" (note apostrophe)
+- **Component**: 3-level cascading dropdown (no Locality level on this build).
+  - **County** — `Nairobi City` only.
+  - **Sub County** — appears after County selected. Currently shows duplicate entries (Makadara/Kibra each twice — issue #12, root-`ke` boundary tree leak).
+  - **Ward** — appears after Sub County selected. e.g. Viwandani, Harambee, Maringo/Hamza, Makongeni for Makadara.
+- **Edge case**: Cascade gates each level — picking nothing shows only County (CCRS#477 fix verified by PR #9). Each step requires picking the parent first.
 
-### Story 3.5: Describe complaint
+### Story 3.5: Additional Details
 
-- **Step config**: `additionalDetails` (`products/pgr/src/pages/citizen/Create/steps-config/additionalDetails.js`)
-- **User actions**: Type description (mandatory, ≤1000 chars)
-- **Validation**: non-empty
-- **Localization keys**: `CS_COMPLAINT_DETAILS_ADDITIONAL_DETAILS`
+- **Step config**: `additionalDetails`
+- **Title**: "Additional Details"
+- **Field**: **Description** (textarea, mandatory, no visible char counter).
 
-### Story 3.6: Upload photos
+### Story 3.6: Upload photos + submit
 
 - **Step config**: `complaintsUploadimages`
-- **Component**: `SelectImages` (`products/pgr/src/pages/citizen/Create/Steps/SelectImages.js`)
-- **User actions**: Upload (drag-drop or file input), thumbnails render → `formData.attachments` = filestore IDs; remove on click
-- **API calls**: `POST /filestore/v1/files`
-- **Validation**: optional
-- **Localization keys**: `CS_ADDCOMPLAINT_ADD_PHOTO`, `CS_ADDCOMPLAINT_UPLOAD_PHOTOS_OPTIONAL`
+- **Title**: "Upload complaint photos"
+- **Body text**: starts "Click on the icon below to upload the complaint photos as evidence. Y…" (truncated in the layout).
+- **Component**: single dropzone with camera-icon "+" button. Optional.
+- **API calls**: `POST /filestore/v1/files` per uploaded photo.
+- **Footer**: **SUBMIT** (yellow) — final step.
+- **Submit triggers**: `POST /pgr-services/v2/request/_create` with `serviceCode`, `description`, `address` (locality.code, pincode, landmark, geoLocation), `attachments[]`, `citizen.{name,mobile}`.
 
-### Story 3.7: Review & submit
-
-- **User actions**: Read-only summary → "Submit Complaint"
-- **API calls**: `POST /pgr-services/v2/request/_create` with `serviceCode`, `description`, `address` (locality.code, pincode, landmark, geoLocation), `attachments`, `citizen` (name, mobile)
-- **Payload normalization**: `validateString` ensures non-empty strings; `geoLocation` coerced to `{ latitude, longitude }`
-- **Localization keys**: `CS_COMMON_REVIEW_COMPLAINT`, `CS_COMMON_SUBMIT_COMPLAINT`
-
-### Story 3.8: See confirmation + reference number
-
-- **Route**: `/digit-ui/citizen/pgr/create-complaint/response`
-- **Component**: `Response` (`products/pgr/src/pages/citizen/Create/Steps/Response.js`)
-- **User actions**: View `serviceRequestId` (e.g. `NCCG-PGR-2026-04-28-011862`) → "View Complaint" or "File Another"
-- **Data source**: `complaintDetails.response.service.serviceRequestId` from Redux store
-- **Localization keys**: `CS_COMMON_COMPLAINT_FILED_SUCCESSFULLY`, `CS_COMMON_COMPLAINT_NUMBER`
-
----
-
-## Flow 4: My complaints / track
-
-### Story 4.1: View my complaints list
-
-- **Route**: `/digit-ui/citizen/pgr/complaints`
-- **Page component**: `ComplaintsList` (`products/pgr/src/pages/citizen/ComplaintsList.js`)
-- **Sub-components**: `Header`, `Complaint` card (`products/pgr/src/components/Complaint.js`), `Loader`, `Card`
-- **User actions**:
-  - Page load → `useComplaintsListByMobile(tenantId, mobileNumber)`
-  - Click card → `/digit-ui/citizen/pgr/complaint/details/:id`
-- **API calls**: `POST /pgr-services/v2/request/_search?mobileNumber=...`
-- **Card displays**: complaint type (translated `SERVICEDEFS.*`), filed date, complaint number, status badge (`OPEN` / `CLOSED`), localized status code
-- **Edge cases**: empty list → "No Complaints Found" card
-- **Localization keys**: `CS_COMMON_MY_COMPLAINTS`, `CS_COMMON_COMPLAINT_NO`, `CS_COMMON_OPEN`, `CS_COMMON_CLOSED`
-
----
-
-## Flow 5: Complaint details & timeline
-
-### Story 5.1: View complaint details
-
-- **Route**: `/digit-ui/citizen/pgr/complaint/details/:id`
-- **Page component**: `ComplaintDetailsPage` (`products/pgr/src/pages/citizen/ComplaintDetails.js`)
-- **Sub-components**: `StatusTable`, `Card`, `CardSubHeader`, `Loader`
-- **User actions**: Read-only render driven by `useComplaintDetails({ tenantId, id })`
-- **API calls**:
-  - `POST /pgr-services/v2/request/_search?serviceRequestId=...`
-  - `POST /MDMS/v2/search` (RAINMAKER-PGR.ServiceDefs) for translated names
-  - `Digit.UploadServices.Filefetch()` for attachment URLs
-- **Sections rendered**: number, status, type, subtype, description, address (street, landmark, pincode, locality), filed date, citizen (name, mobile), thumbnails, workflow timeline, rating
-- **Localization keys**: `CS_HEADER_COMPLAINT_SUMMARY`, `CS_COMPLAINT_DETAILS_COMPLAINT_DETAILS`
-
-### Story 5.2: View workflow timeline
-
-- **Component**: `TimeLine` (`products/pgr/src/components/TimeLine.js`, ~177 lines)
-- **Sub-components**: `ConnectingCheckPoints`, `CheckPoint`, state-specific instances under `products/pgr/src/components/timelineInstances/` (`PendingForAssignment`, `PendingAtLME`, `Resolved`, `Rejected`, `Reopen`, `StarRated`), `DisplayPhotos`
-- **States rendered**: `COMPLAINT_FILED → PENDINGFORASSIGNMENT → PENDINGATLME → RESOLVED → CLOSEDAFTERRESOLUTION` (rated) or `CLOSEDAFTERREJECTION`. Branches: `REJECTED`, `REOPEN`, `PENDINGFORREASSIGNMENT`.
-- **Each checkpoint shows**: localized status (`CS_COMMON_<STATUS>`), timestamp, actor (name, mobile), comment, attachments
-- **Localization keys**: `WF_COMMON_COMMENTS`, `CS_COMMON_ATTACHMENTS`, `CS_COMMON_PENDINGFORASSIGNMENT`, `CS_COMMON_PENDINGATLME`, `CS_COMMON_RESOLVED`, `CS_COMMON_REJECTED`
-
----
-
-## Flow 6: Rate complaint & close
-
-### Story 6.1: Rate (1–5 stars + feedback)
-
-- **Route**: `/digit-ui/citizen/pgr/rate/:id*`
-- **Page component**: `SelectRating` (`products/pgr/src/pages/citizen/Rating/SelectRating.js`)
-- **Sub-components**: `RatingCard`, checkbox group, `TextArea`, `SubmitBar`
-- **User actions**:
-  - Click 1–5 stars
-  - Tick "What was good?" checkboxes (Service quality, Resolution time, Quality of work, Others)
-  - Type optional comment
-  - Click "Next" → validate rating > 0, dispatch `updateComplaints`
-- **Payload built**:
-  - `rating` (1–5)
-  - `additionalDetail` — comma-joined feedback (or empty)
-  - `workflow.action` = `RATE`
-  - `workflow.comments` = comment text
-- **API calls**: `PUT /pgr-services/v2/request/_update` (action `RATE`)
-- **Validation**: `rating > 0`; checkboxes + comment optional
-- **Localization keys**: `CS_COMPLAINT_RATE_HELP_TEXT`, `CS_COMPLAINT_RATE_TEXT`, `CS_FEEDBACK_WHAT_WAS_GOOD`, `CS_FEEDBACK_SERVICES`, `CS_FEEDBACK_RESOLUTION_TIME`, `CS_FEEDBACK_QUALITY_OF_WORK`, `CS_FEEDBACK_OTHERS`, `CS_COMMON_COMMENTS`
-
-### Story 6.2: Thank-you confirmation
+### Story 3.7: Confirmation
 
 - **Route**: `/digit-ui/citizen/pgr/response`
 - **Component**: `Response` (`products/pgr/src/pages/citizen/Response.js`)
-- **User actions**: View thank-you → "View Complaints" or "File Another"
-- **Localization keys**: `CS_RATE_THANK_YOU`, `CS_COMMON_THANK_YOU_FOR_FEEDBACK`
+- **Content**: green hero banner with thumbs-up icon, title "**Complaint Submitted**", "Complaint No." with the new `NCCG-PGR-YYYY-MM-DD-NNNNNN` ID, body "The notification along with complaint number is sent to your registered mobile number. You can track the complaint status using mobile or web app."
+- **User actions**: single yellow button **"Go back to home page"** → returns to `/all-services`.
+- **Note**: this route is also reused for the post-rate thank-you (Flow 6 reuses it) — content is identical; not state-aware.
+
+---
+
+## Flow 4: My Complaints
+
+### Story 4.1: View My Complaints list
+
+- **Route**: `/digit-ui/citizen/pgr/complaints`
+- **Page component**: `ComplaintsList` (`products/pgr/src/pages/citizen/ComplaintsList.js`)
+- **Title**: "My Complaints"
+- **Card content** (per complaint):
+  - **Subtype name** as the card title (e.g. "Land Ownership Dispute") — translated where seeded, raw UPPER_SNAKE otherwise.
+  - 📅 calendar icon + filed date in `DD-Mon-YYYY` format.
+  - "Complaint No" + the `NCCG-PGR-…` ID.
+  - Status badge: pink/light pill **`OPEN`** or **`CLOSED`**.
+  - Localised workflow status below (e.g. "Pending for assignment", "Resolved").
+- **User actions**: card click → `/citizen/pgr/complaints/:id`.
+- **API calls**: `POST /pgr-services/v2/request/_search?mobileNumber=…`.
+- **Edge cases**: empty list → "No Complaints Found" card.
+
+---
+
+## Flow 5: Complaint detail + timeline
+
+### Story 5.1: View complaint detail
+
+- **Route**: `/digit-ui/citizen/pgr/complaints/:id` (PLURAL — see Routes table note).
+- **Page component**: `ComplaintDetailsPage` (`products/pgr/src/pages/citizen/ComplaintDetails.js`).
+- **Page heading**: "Complaint Summary".
+- **Card 1 — "Complaint Details"** rows:
+  - Complaint No.
+  - Application Status (e.g. "Pending for assignment")
+  - Complaint Type (the menuPath: e.g. "Lands")
+  - Complaint Sub-Type
+  - Additional Details (description text)
+  - Filed Date (`DD-Mon-YYYY`)
+  - Address — boundary chain rendered as: raw boundary code (e.g. `NAIROBI_CENTRAL` — issue #12), city ("Nairobi"), postal code.
+- **Card 2 — Map**: shows `Lat: -1.292100 / Lng: 36.821900`-style overlay + blue **"Open in Maps"** button (opens external maps).
+- **Card 3 — "Complaint Timeline"** (Story 5.2).
+- **API calls**: `POST /pgr-services/v2/request/_search?serviceRequestId=…` + filestore for attachments.
+
+### Story 5.2: View complaint timeline
+
+- **Component**: vertical timeline below the detail card.
+- **Title**: "Complaint Timeline".
+- **Each checkpoint**:
+  - Yellow dot (current state) or gray dot (past state).
+  - Status name (translated: "Pending for assignment", "Complaint filed", "Resolved", "Rejected").
+  - Date in `DD/MM/YYYY` format.
+  - Actor: mobile-as-name (e.g. `712345678`) — rendered twice when `name === mobileNumber` (auto-register heuristic).
+  - Channel: e.g. "Filed Via Web".
+  - Comment + attachments (when present) per state.
+- **States possible**: COMPLAINT_FILED → PENDINGFORASSIGNMENT → PENDINGATLME → RESOLVED → CLOSEDAFTERRESOLUTION (if rated). Branches: REJECTED → CLOSEDAFTERREJECTION; REOPEN → PENDINGFORASSIGNMENT.
+
+---
+
+## Flow 6: Rate complaint
+
+### Story 6.1: Rate (UI render + submit)
+
+- **Route**: `/digit-ui/citizen/pgr/rate/:id`
+- **Page component**: `SelectRating` (`products/pgr/src/pages/citizen/Rating/SelectRating.js`)
+- **Page renders for any complaint state** — UI doesn't gate by state (server rejects invalid actions on submit).
+- **Heading**: "**How would you rate your experience with us?**" (rendered twice — page title + section title).
+- **Fields**:
+  - 5-star row.
+  - Checkbox group "What was good ?" (note spaces around `?`): **Services** / **Resolution Time** / **Quality of Work** / **Others**.
+  - Comments textarea.
+- **Submit**: `PUT /pgr-services/v2/request/_update` with `workflow.action = "RATE"`, `rating` (1–5), `additionalDetail` (comma-joined feedback), `workflow.comments`.
+- **Validation**: `rating > 0` is required; checkboxes + comments optional.
+- **Post-submit**: redirects to `/citizen/pgr/response` (shared with the file-complaint confirmation — same template).
 
 ---
 
 ## Flow 7: Reopen complaint
 
-### Story 7.1: Reopen with reason + photos + details
+### Story 7.1: Reopen wizard (multi-step)
 
-- **Routes**: `/digit-ui/citizen/pgr/reopen/:id` (Reason) → `/upload-photo/:id` (Photos) → `/addional-details/:id` (Details, note typo) → `/response`
-- **Component**: `ReopenComplaint` wrapper (`products/pgr/src/pages/citizen/ReopenComplaint/index.js`) chains the steps
-- **User actions**:
-  - Step 0: Select reason → `formData.reason`
-  - Step 1: Upload photos (optional) → `formData.attachments`
-  - Step 2: Type additional details
-  - Step 3: Submit → reopen API
-- **API calls**: `PUT /pgr-services/v2/request/_update` (action `REOPEN`)
-- **Edge cases**: complaint must be in `RESOLVED` or `REJECTED` state for the action to be valid server-side
-- **Localization keys**: `CS_COMMON_REOPEN_COMPLAINT`, `CS_COMMON_REASON_FOR_REOPEN`, `CS_ADDCOMPLAINT_ADDITIONAL_DETAILS`
+- **Route**: `/digit-ui/citizen/pgr/reopen/:id` (sub-steps handled internally — declared paths in `Routes.js` are dead).
+- **Page component**: `ReopenComplaint` (`products/pgr/src/pages/citizen/ReopenComplaint/index.js`)
+- **Step 0 — Reason** (verified):
+  - Title: "Choose Reason to Re-open the Complaint"
+  - 4 radio options: "No work was done" / "Only partial work was done" / "Employee did not turn up" / "No permanent solution"
+  - "Next" button.
+- **Step 1 — Upload photos** (inferred): optional file picker.
+- **Step 2 — Additional details** (inferred): freeform text.
+- **Step 3 — Response** (inferred): confirmation.
+- **Submit**: `PUT /pgr-services/v2/request/_update` with `workflow.action = "REOPEN"`.
+- **Edge cases**: page renders for non-RESOLVED complaints (server rejects on submit).
 
 ---
 
 ## Flow 8: Profile
 
-### Story 8.1: View & edit profile
+### Story 8.1: Edit profile (Name / Gender / Email / photo)
 
 - **Route**: `/digit-ui/citizen/user/profile`
 - **Page component**: `UserProfile` (`packages/modules/core/src/pages/citizen/Home/UserProfile.js`)
-- **Sub-components**: profile photo `UploadDrawer`, text inputs (name/email/mobile), city + language dropdowns, notification toggles (SMS/Email/WhatsApp), "Change Password" trigger
-- **User actions**:
-  - Click profile photo → upload drawer
-  - Edit name → MDMS regex `/^[a-zA-Z ]+$/i`
-  - Edit email — optional
-  - Edit mobile — 10 digits (Kenya pattern post-#444 fix; field is editable)
-  - Switch city → tenant context change
-  - Switch language → `Digit.LocalizationService.changeLanguage()`
-  - Toggle notification channels → upsert preferences
-  - Click "Change Password" → modal
-  - Click "Save" → user-update API
-- **API calls**:
-  - `PUT /user/{uuid}/_update` (or equivalent — confirm in source)
-  - `POST /filestore/v1/files` (photo)
-  - `POST /egov-common-masters/preferences/_upsert` (notif preferences)
-- **Validation**: name regex, mobile pattern from MDMS, password regex `/^([a-zA-Z0-9@#$%]{8,15})$/i`
-- **Localization keys**: `PROFILE_USER_PROFILE`, `CORE_COMMON_NAME`, `CORE_COMMON_EMAIL`, `CORE_COMMON_MOBILE_NUMBER`, `CORE_COMMON_LANGUAGE`, `CORE_COMMON_NOTIFICATIONS`, `CORE_COMMON_SAVE`
-
-### Story 8.2: Change password
-
-- **Route**: modal on `/digit-ui/citizen/user/profile`
-- **User actions**: current password + new + confirm → `Digit.UserService.changePassword()`
-- **API calls**: `POST /user/_updatePassword`
-- **Validation**: current matches, new ≥ 8 ≤ 15, confirm matches new
-
-### Story 8.3: Upload profile photo
-
-- **Component**: `UploadDrawer` (`packages/modules/core/src/pages/citizen/Home/ImageUpload/UploadDrawer.js`)
-- **User actions**: pick file → preview → optional crop → "Upload" → filestore + user PUT
-- **API calls**: `POST /filestore/v1/files`, `PUT /user/{uuid}/`
+- **Fields rendered (the entire surface)**:
+  - **Photo** placeholder + orange "+" camera button → file picker via `UploadDrawer`.
+  - **Name \*** — pre-filled with mobile number for auto-registered citizens (`name === mobileNumber` heuristic).
+  - **Gender** — dropdown.
+  - **Email** — optional.
+- **Submit**: red **"Save"** button → `PUT /user/{uuid}/_update` (and `POST /filestore/v1/files` for photo).
+- **Validation**: name regex from MDMS (`/^[a-zA-Z ]+$/i` per `UserProfileValidationConfig`).
+- **What's NOT here** (catalogue overstatements, none rendered): mobile field (immutable), language switcher, notification preferences, change-password modal. Issue #12 has the full list.
 
 ---
 
 ## Flow 9: Logout
 
-### Story 9.1: Log out
+### Story 9.1: Log out via sidebar
 
-- **Trigger**: `TopBarSideBar` user dropdown → "Logout" (`packages/modules/core/src/components/TopBarSideBar/index.js`)
-- **User actions**: Click → `Digit.UserService.logout()` → redirect to `/digit-ui/citizen/login`
-- **Cleared**: user object, tokens, session context (verified by test
-  `tests/citizen/logout.spec.ts` — citizen ends back on login URL, NOT `/all-services`)
-- **Localization keys**: `CORE_COMMON_LOGOUT`
+- **Trigger**: sidebar item "Logout" (NOT a header dropdown — none exists on this build).
+- **Modal** on click:
+  - Title: "Logout"
+  - Body: "Are you sure you want to **Logout**"
+  - Buttons: **Cancel** + **Yes, Logout** (yellow filled).
+- **On confirm**: `Digit.UserService.logout()` → redirects to `/citizen/login`. Existing test `tests/citizen/logout.spec.ts` matches `:has-text("Yes")` — could tighten to `Yes, Logout` for fidelity.
 
 ---
 
-## Flow 10: Auxiliary surfaces
+## Flow 10: Auxiliary surfaces (mostly broken)
 
-These exist on the citizen route map but are tangential to the PGR core
-loop. Worth a smoke test, not full flow coverage.
+### Story 10.1: FAQ — ❌ broken
 
-### Story 10.1: All services directory
+- **Route**: `/digit-ui/citizen/pgr-faq`
+- **Status**: renders "Something went wrong" + Home button. Broken `<img>` placeholder shows raw text "error". Tracked in issue #12.
 
-- **Route**: `/digit-ui/citizen/all-services` (`packages/modules/core/src/pages/citizen/Allservices/index.js`)
-- **Component**: grid of available service modules
-- **User actions**: tile click → module home
+### Story 10.2: How it works — ❌ broken
 
-### Story 10.2: FAQ
+- **Route**: `/digit-ui/citizen/pgr-how-it-works`
+- **Status**: same "Something went wrong" page.
 
-- **Route**: `/digit-ui/citizen/pgr-faq` (`packages/modules/core/src/pages/citizen/FAQs/FAQs.js`)
-- **Behaviour**: read-only, MDMS-driven
+### Story 10.3: HELPLINE sidebar — ❌ dead handler
 
-### Story 10.3: How it works
+- **Trigger**: sidebar item "HELPLINE" (rendered raw, unlocalized).
+- **Status**: click handler observed to do nothing (no nav, no modal, no `tel:` prompt). Tracked in issue #12.
 
-- **Route**: `/digit-ui/citizen/pgr-how-it-works` (`packages/modules/core/src/pages/citizen/HowItWorks/howItWorks.js`)
-- **Behaviour**: read-only static / MDMS
+### Story 10.4: What's New / events
 
-### Story 10.4: What's new
-
-- **Surface**: `WhatsNewCard` on home (`packages/modules/core/src/pages/citizen/Home/index.js`)
-- **Data source**: `Digit.Hooks.useEvents` with `variant="whats-new"`
-- **User actions**: card click → event detail
+- **Status**: not rendered on `/all-services` or `/pgr-home` on this build. Probably feature-flag-off; not validated.
 
 ---
 
@@ -405,236 +353,53 @@ loop. Worth a smoke test, not full flow coverage.
 
 ### Validation surface (citizen-side, sourced from MDMS)
 
-- `ValidationConfigs.mobileNumberValidation` → mobile regex (currently 10 digits, Kenya `07`/`01`)
+- `ValidationConfigs.mobileNumberValidation` → mobile regex (10 digits, Kenya `07`/`01`)
 - `UserProfileValidationConfig.name` → `/^[a-zA-Z ]+$/i`
-- Password → `/^([a-zA-Z0-9@#$%]{8,15})$/i`
-- Pincode → 5 digits (Kenya, post-#478)
-- Description → non-empty, ≤1000 chars
+- Pincode → 5 digits (Kenya, post-CCRS#478)
+- Description → non-empty
 
 ### Where the citizen tenant comes from
 
-`FormExplorer.js` (and other citizen entry points) read tenant via:
 ```
 Digit.SessionStorage.get("CITIZEN.COMMON.HOME.CITY")?.code
   || Digit.ULBService.getCurrentTenantId()
 ```
-On naipepea, citizen `tenantId` = `ke` (state); address `tenantId` =
-`ke.nairobi` (city). The split is enforced in the `_create` payload.
+On naipepea: citizen `tenantId` = `ke` (state); address `tenantId` = `ke.nairobi` (city). Split is enforced in the `_create` payload (CCRS-historical regression source).
 
-### Things deliberately not catalogued
+### Known localization + data gaps (issue #12)
 
-- `dss/` (Decision Support System) — citizen exposure is unclear on naipepea; needs a separate scan if enabled.
-- Engagement / events / surveys — `packages/modules/engagement/`, surface but not part of the PGR core loop.
-- Payments — `packages/modules/open-payment/`; no PGR fee on naipepea so the citizen flow doesn't hit it.
-
----
-
-## Test-planning notes
-
-- 10 flows × ~3 stories average ≈ ~30 testable user journeys.
-- Coverage that already exists in `tests/citizen/`:
-  - `login.spec.ts` — Story 1.5 (existing-user OTP login)
-  - `login-mobile.spec.ts` — Story 1.2 mobile validator (CCRS#429)
-  - `complaint-details.spec.ts` — Story 5.1 detail render no-crash
-  - `complaint-type-labels.spec.ts` — Story 3.2 SERVICEDEFS translation
-  - `pgr-fixes.spec.ts` — Stories 4.1 / 6.1 / 5.2 spot fixes (CCRS#421/#422/#441)
-  - `create-fixes-2026-04-29.spec.ts` — Story 3.4–3.7 pincode + AddressOne/Two payload (CCRS#478)
-  - `timeline-fixes-2026-04-29.spec.ts` — Stories 5.2 / 6.1 timeline + rating localization (CCRS#473)
-  - `logout.spec.ts` — Story 9.1
-- Material gaps as of 2026-04-29:
-  - **Story 1.1** language selection — no test
-  - **Story 1.2/1.3/1.4** new-user registration — only existing-user login covered
-  - **Story 2.1** home page tile grid — no test
-  - **Story 3.1** "myself / another user" branch — no test
-  - **Story 3.3** boundary cascade — no test
-  - **Story 3.6** photo upload — no test
-  - **Story 3.7** end-to-end submit (citizen-driven) — only the launch-fixes payload-shape spec touches it; full happy-path UI submission is in `tests/lifecycle/pgr-ui.spec.ts` not citizen/
-  - **Story 6.1** rating UI flow — no test (only the post-RATE backend assertion)
-  - **Story 6.2** thank-you screen — no test
-  - **Story 7.1** reopen flow — no test
-  - **Story 8.1/8.2/8.3** profile / password / photo — no test (employee-side `+254` prefix is the only profile assertion)
-  - **Story 10.x** auxiliary — no test
+- `CS_LOGIN_REGISTER_WITH_EMAIL`, `HELPLINE` keys render raw.
+- Subtype dropdown shows raw UPPER_SNAKE codes (e.g. `LAND OWNERSHIP DISPUTE`).
+- `NAIROBI_CENTRAL` boundary code rendered raw in detail-page Address.
+- Sub-County dropdown has duplicate entries (Makadara x2, Kibra x2 — root-`ke` boundary tree).
+- `/pgr-faq` and `/pgr-how-it-works` render "Something went wrong".
+- HELPLINE sidebar click is a dead handler.
 
 ---
 
-## Validation summary — 2026-04-29
+## Coverage map (specs in `tests/citizen/`)
 
-Walked the entire citizen surface in Chrome against `http://localhost:18080`.
-Created a real complaint (`NCCG-PGR-2026-04-29-013280`) end-to-end. Per-flow
-divergences below; the original Story sections above are kept verbatim for
-historical reference, with a status flag and corrections layered here.
-
-### Routing — corrections to the table at the top
-
-- `/digit-ui/citizen/` redirects unauthenticated visitors to
-  `/digit-ui/citizen/all-services` (NOT to `/login`, NOT to a tile grid
-  module home).
-- `/digit-ui/citizen/all-services` is the **default landing** post-login —
-  shows "Citizen Complaint Resolution System" header with two text links
-  (`File a Complaint`, `My Complaints`).
-- `/digit-ui/citizen/pgr-home` is the **branded "Nai Pepea" PGR module
-  home** — hero with "Report a grievance, track the resolution" and PGR
-  badge. The sidebar item "Citizen Complaint R…" links here.
-- Complaint detail URL is `/digit-ui/citizen/pgr/complaints/:id` (PLURAL),
-  NOT `/complaint/details/:id` as `Routes.js` declares. The Routes.js
-  export and the actually-mounted path diverge — trust the URL bar.
-- Reopen sub-step paths (`/upload-photo/:id`, `/addional-details/:id`)
-  declared in `Routes.js` are dead — the wizard doesn't navigate to them.
-- The create-complaint wizard URL stays at
-  `/digit-ui/citizen/pgr/create-complaint/complaint-type` for ALL 6 steps;
-  per-step paths in `Routes.js` (`/pincode`, `/landmark`, etc.) are dead.
-
-### Flow 1 — Authentication
-
-| Story | Status | Notes |
-|---|---|---|
-| 1.1 select language | 🚫 inferred | No splash language-selection screen on first hit; `English` defaults in header pill. Route exists per source but isn't part of the auth path on this build. |
-| 1.2 register mobile | ⚠ corrected | Page title is "Provide your mobile number" (not "Send OTP"). Button label is **"Next"**, not "Send OTP". `+254` prefix is rendered as a non-typeable hint left of the input. Helper text: "Enter your 10-digit mobile number". A `CS_LOGIN_REGISTER_WITH_EMAIL` link below mobile field is **rendered as the raw key** — localization gap. |
-| 1.3 register OTP | ⚠ corrected | Title "OTP Verification". 6 separate `maxlength=1` inputs. "Resend another OTP N secs" countdown text. Button: "Next". Mobile shown without `+254` prefix as `"Enter the OTP sent to 712345678"`. Mock OTP `123456` succeeded against the local proxy. |
-| 1.4 register name+email | 🚫 inferred | Walked the OTP-login path for an already-known number — the name+email screen wasn't triggered. Route `/citizen/register/name` likely exists but unverified. |
-| 1.5 login | ✅ verified | Same form as register-mobile, post-OTP redirects to `/citizen/all-services` (NOT to `/citizen/`). |
-
-### Flow 2 — Home & Landing
-
-| Story | Status | Notes |
-|---|---|---|
-| 2.1 home tile grid | ⚠ corrected | No "module tile grid". Post-login lands on `/all-services` showing "Citizen Complaint Resolution System" + 2 yellow text links. Branded Nai Pepea hero is at `/pgr-home` (separate page). Sidebar after login: **Home / Citizen Complaint R… (truncated, → /pgr-home) / Edit Profile / Logout / HELPLINE**. |
-| 2.2 header language switch | ✅ verified | Header has an "English" pill (top-right) + bell icon. No user-icon dropdown — logout lives in the sidebar. |
-
-Sidebar additions to catalogue: **HELPLINE** item (renders raw "HELPLINE" key, no localization, click handler appears dead — no nav, no modal observed); avatar + mobile-as-name shown above sidebar items. No header user-dropdown exists in this build — the catalogue's "click user icon → logout" is incorrect.
-
-### Flow 3 — File Complaint wizard — REWRITTEN (was 8 stories, actually 6 steps)
-
-The actual wizard has **6 steps**, not 8. The catalogued Stories 3.1
-("Myself / Another User") and 3.7 (Review/Confirm) **do not exist** in
-the live UI — `selectComplaintType` step config in source is dead-code,
-and there is no review screen between photos and submit.
-
-| New step | Catalogue mapping | Title (live) | Behaviour |
-|---|---|---|---|
-| 1 | (replaces 3.1+3.2) | **Complaint Details** | Two dropdowns: Complaint Type * (e.g. `Lands`, `Innovation And Digital Economy`, `Lands` — the `menuPath` translated) + Complaint Subtype * (raw UPPER_SNAKE codes, e.g. `LAND OWNERSHIP DISPUTE`, `SURVEYING DELAY` — **not localised**). |
-| 2 | 3.3 partial | **Pin Complaint Location** | Leaflet map with reverse-geocoded address shown above pin. Search bar, draggable pin, "recenter" button bottom-right. Address auto-populates downstream Postal Code. |
-| 3 | 3.4 | **Location Details** | 4 fields: Address / Address Line 1 / Landmark / Postal Code. Postal Code is **pre-filled** from step 2 reverse-geocode (`40476` for the Nairobi CBD pin). All optional. |
-| 4 | 3.3 | **Complaint's Location** (note apostrophe) | Cascading boundary: County → Sub County → Ward. **Only 3 levels** — no Locality. Cascade gates child levels (PR #9 / CCRS#477 fix verified). Sub-County options have **duplicate entries** ("Makadara", "Kibra" each rendered twice — boundary-data quality issue). |
-| 5 | 3.5 | **Additional Details** | Single Description textarea, required. No visible char counter, no help text. |
-| 6 | 3.6+3.8 | **Upload complaint photos** | Single dropzone with camera-icon "+". Optional. Bottom button: **SUBMIT** (not NEXT — this is the final step). |
-
-Footer buttons across the wizard: **NEXT** (yellow filled) and **BACK**
-(white outline). Step 6 swaps NEXT for **SUBMIT**. URL stays at
-`/citizen/pgr/create-complaint/complaint-type` for all steps.
-
-| Story | Status |
+| Story | Spec covering it |
 |---|---|
-| 3.1 myself/another | ❌ broken/dead-coded |
-| 3.2 complaint type | ✅ verified — extends to subtype too (in same step) |
-| 3.3 location cascade | ✅ verified |
-| 3.4 pincode + landmark | ✅ verified — actual fields are Address / Address Line 1 / Landmark / Postal Code |
-| 3.5 description | ✅ verified |
-| 3.6 photos | ✅ verified — also the wizard's last step |
-| 3.7 review | ❌ doesn't exist |
-| 3.8 confirmation | ⚠ corrected — see below |
+| 1.1 / 1.2 login | `login.spec.ts` |
+| 1.1 mobile validator (CCRS#429) | `login-mobile.spec.ts` |
+| 3.4 / 3.6 wizard payload (CCRS#478, address fields) | `create-fixes-2026-04-29.spec.ts` |
+| 3.2 + 3.4 pin trap + cascade gate (CCRS#469, #477) | `pin-and-cascade-fixes-2026-04-29.spec.ts` |
+| 3.1 complaint type localization | `complaint-type-labels.spec.ts` |
+| 4.1 list + 5.1 detail + 5.2 timeline (citizen-fix subset) | `pgr-fixes.spec.ts` |
+| 5.1 detail render no-crash | `complaint-details.spec.ts` |
+| 5.2 + 6.1 timeline + rating localization (CCRS#473) | `timeline-fixes-2026-04-29.spec.ts` |
+| 9.1 logout | `logout.spec.ts` |
 
-### Flow 3.8 — Confirmation (corrected)
+### Material gaps (no citizen-side spec yet)
 
-- URL: `/digit-ui/citizen/pgr/response` (NOT `/create-complaint/response`)
-- Title: **"Complaint Submitted"** (not `CS_COMMON_COMPLAINT_FILED_SUCCESSFULLY`)
-- Big green hero with thumbs-up icon
-- Complaint No.: e.g. `NCCG-PGR-2026-04-29-013280`
-- Body text: "The notification along with complaint number is sent to your registered mobile number. You can track the complaint status using mobile or web app."
-- **Single button**: "Go back to home page" (yellow) — there is no "View Complaint" or "File Another"
-
-### Flow 4 — My Complaints list
-
-✅ verified with corrections:
-- Card header is the **subtype name** ("Land Ownership Dispute"), not the type/menuPath as catalogued.
-- Status badge: pink/light pill `OPEN` (or `CLOSED`), then the localised workflow state below ("Pending for assignment").
-- Filed date format: `29-Apr-2026` (DD-Mon-YYYY).
-
-### Flow 5 — Complaint detail + timeline
-
-✅ verified with corrections:
-- URL: `/citizen/pgr/complaints/:id` (PLURAL) — see Routing correction.
-- Top section: heading "Complaint Summary", sub-card "Complaint Details" with rows: Complaint No. / Application Status / Complaint Type / Complaint Sub-Type / Additional Details / Filed Date / Address.
-- Address row renders the boundary chain unlocalized: e.g. `NAIROBI_CENTRAL` then "Nairobi" then `40476`. **`NAIROBI_CENTRAL` is a raw boundary code** — localization gap.
-- Map widget with lat/lng overlay + **"Open in Maps"** button (blue) — the catalogue claimed a plain `google.com/maps?q=lat,lng` link.
-- Timeline section title: "Complaint Timeline".
-- Timeline checkpoints: yellow dot for current state; gray dot for past. Each has status name + `DD/MM/YYYY` date + actor (mobile-as-name) + channel ("Filed Via Web").
-
-### Flow 6 — Rate
-
-✅ verified Story 6.1 (UI render) / 🚫 inferred Story 6.2:
-- URL: `/citizen/pgr/rate/:id` ✓ — page renders even when complaint is **not** RESOLVED (server probably rejects on submit but UI is unguarded).
-- Heading is the question itself: **"How would you rate your experience with us?"** (twice — page title + section title).
-- 5-star rating row.
-- Checkbox group "What was good ?" with options: **Services** / **Resolution Time** / **Quality of Work** / **Others** (catalogue claimed "Service quality" — actual is "Services"). Spaces around `?` in label.
-- Comments textarea.
-- Couldn't submit (would fail server-side); thank-you screen (Story 6.2) at `/citizen/pgr/response` shares the route with the file-complaint confirmation — content for rate-completion not validated.
-
-### Flow 7 — Reopen
-
-✅ verified Story 7.1 (step 0 only):
-- URL: `/citizen/pgr/reopen/:id` ✓.
-- Step 0 title: **"Choose Reason to Re-open the Complaint"**.
-- 4 **radio** options (catalogue said "select reason → formData.reason"; actual UI is a radio group, not a free-text or dropdown):
-  1. No work was done
-  2. Only partial work was done
-  3. Employee did not turn up
-  4. No permanent solution
-- "Next" button proceeds; subsequent steps not validated (state-gated, would require RESOLVED).
-- Page renders for non-RESOLVED complaints — server gates the action on submit.
-
-### Flow 8 — Profile — MAJOR shrink (was 3 stories, actually 1)
-
-⚠ corrected — the catalogue overstates this surface heavily:
-- URL: `/digit-ui/citizen/user/profile` ✓
-- Fields rendered: **Photo + Name * + Gender + Email** — that's it.
-- **No mobile field** (mobile is the immutable login key).
-- **No language switcher**.
-- **No notification toggles** (SMS / Email / WhatsApp).
-- **No change-password modal** — Story 8.2 does not exist on the citizen UI.
-- "Save" button (red, plain text).
-- Photo upload: orange "+" camera button on the placeholder triggers a file picker (catalogue Story 8.3 — present but a sub-feature, not a separate story).
-
-| Story | Status |
-|---|---|
-| 8.1 view + edit | ⚠ corrected (only Name/Gender/Email + photo) |
-| 8.2 change password | ❌ not exposed on citizen UI |
-| 8.3 upload photo | ✅ sub-feature of 8.1 |
-
-### Flow 9 — Logout
-
-✅ verified Story 9.1 with one correction:
-- Trigger is the **sidebar** "Logout" item (NOT a header dropdown — there is no header user dropdown on this build).
-- Click → modal: title "Logout", message "Are you sure you want to **Logout**", buttons **Cancel** + **Yes, Logout**.
-- Existing `tests/citizen/logout.spec.ts` matches `button:has-text("Yes")` — should ideally tighten to `Yes, Logout` (the actual label).
-
-### Flow 10 — Auxiliary
-
-| Story | Status | Notes |
-|---|---|---|
-| 10.1 all-services | ⚠ corrected — it's the **default landing**, not an aux page. Title "Citizen Complaint Resolution System". Two text links: File a Complaint (→ wizard step 1) and My Complaints (→ list). Also reachable as `/digit-ui/citizen/all-services`. |
-| 10.2 FAQ | ❌ broken — `/digit-ui/citizen/pgr-faq` returns "Something went wrong" + a "Home" button. Broken `<img>` placeholder shows raw text "error". |
-| 10.3 How it works | ❌ broken — `/digit-ui/citizen/pgr-how-it-works` shows the same "Something went wrong" page. |
-| 10.4 What's New | 🚫 inferred — no `WhatsNewCard` visible on `/all-services` or `/pgr-home`; not validated. Likely not enabled on this build. |
-
-Additional finding: `/digit-ui/citizen/pgr-home` is the **branded module home** ("Nai Pepea" / "Report a grievance, track the resolution" / "Nairobi City County Government" / PGR badge). Not in the original catalogue — add as Story 10.5 if anyone wants to test the brand surface.
-
-The `HELPLINE` sidebar item is a click-handler with no observed effect (no navigation, no modal). Either tel: link suppressed by the dev browser or a dead handler. Worth a smoke test if anyone wires this up.
-
-### Localization gaps observed
-
-Raw keys / codes leaking through to the citizen UI on this build:
-- `CS_LOGIN_REGISTER_WITH_EMAIL` (login page link below mobile field)
-- `HELPLINE` (sidebar item — likely `CS_COMMON_HELPLINE_TITLE` unset)
-- Subtype names in the create-complaint Type/Subtype dropdown (e.g. `LAND OWNERSHIP DISPUTE`)
-- `NAIROBI_CENTRAL` (boundary code in detail-page Address row)
-
-### Test-coverage opportunities revealed by validation
-
-The biggest gaps that map to **easy** Playwright wins are:
-1. **Wizard 6-step happy path** — file a complaint as a citizen end-to-end, assert the redirect to `/pgr/response`, assert the `NCCG-PGR-…` ID format, assert the back-to-home button. Today only `tests/lifecycle/pgr-ui.spec.ts` covers this and lives outside the citizen tree.
-2. **Boundary-cascade gating regression** — already covered by `pin-and-cascade-fixes-2026-04-29.spec.ts`. Add an assertion that Sub-County dedup is the data-quality gap (so we notice when Bomet-vs-Nairobi seed sorts itself out).
-3. **Subtype dropdown localization** — assert that ServiceDef subtype options aren't rendered as raw UPPER_SNAKE; today's coverage in `complaint-type-labels.spec.ts` only checks the type/menuPath, not the subtype.
-4. **Profile field set** — assert the citizen profile renders **only** Name/Gender/Email + photo — guard against unintended exposure of password / notification toggles / mobile-edit if those get re-enabled without a full review.
-5. **Aux page recovery** — when FAQ / How-It-Works are fixed, `/citizen/pgr-faq` should not render the "Something went wrong" fallback. A spec that asserts the absence of that string would flag both successful builds and the regression.
-6. **Logout label tightening** — bump `tests/citizen/logout.spec.ts` to require "Yes, Logout" rather than just "Yes".
+- **Story 1.3** new-user registration (only existing-user OTP login covered)
+- **Story 2.1** all-services landing
+- **Story 2.2** PGR brand home
+- **Story 2.3** language switch
+- **Story 3.7** end-to-end submit (citizen-driven happy path) — the lifecycle spec covers this but lives outside `tests/citizen/`
+- **Story 6.1** rating UI happy path (only post-RATE backend assertion exists)
+- **Story 7.1** reopen flow
+- **Story 8.1** profile field-set guard (lock down what's exposed)
+- **Story 10.1 / 10.2** aux page recovery (assert no "Something went wrong")
+- **Story 10.3** HELPLINE smoke (when wired up)
