@@ -24,6 +24,23 @@ not exact addresses; re-confirm before quoting in test code.
 When this catalogue is used to plan tests, verify the exact selector / line
 each test depends on against the live source first.
 
+## Browser validation — 2026-04-29
+
+Every flow below was walked end-to-end in Chrome against
+`http://localhost:18080/digit-ui/citizen/` (digit-ui-esbuild dev server
+proxying to the naipepea backend). A fresh citizen `712345678` was
+auto-registered, filed a complaint (`NCCG-PGR-2026-04-29-013280`), and
+visited every reachable route. Status flags below each story:
+
+- ✅ **verified** — observed behaviour matches the catalogue
+- ⚠ **corrected** — catalogue had a divergence; correction inline
+- ❌ **broken** — page errors out / dead handler on the live build
+- 🚫 **inferred** — couldn't validate (state-gated; e.g. rate requires RESOLVED)
+
+See `## Validation summary — 2026-04-29` at the bottom for the headline
+divergences (Profile is much smaller than catalogued; wizard has 6 steps
+not 8; FAQ + How-It-Works return error pages; etc.).
+
 ---
 
 ## Citizen route table (verified — `products/pgr/src/constants/Routes.js`)
@@ -437,3 +454,187 @@ On naipepea, citizen `tenantId` = `ke` (state); address `tenantId` =
   - **Story 7.1** reopen flow — no test
   - **Story 8.1/8.2/8.3** profile / password / photo — no test (employee-side `+254` prefix is the only profile assertion)
   - **Story 10.x** auxiliary — no test
+
+---
+
+## Validation summary — 2026-04-29
+
+Walked the entire citizen surface in Chrome against `http://localhost:18080`.
+Created a real complaint (`NCCG-PGR-2026-04-29-013280`) end-to-end. Per-flow
+divergences below; the original Story sections above are kept verbatim for
+historical reference, with a status flag and corrections layered here.
+
+### Routing — corrections to the table at the top
+
+- `/digit-ui/citizen/` redirects unauthenticated visitors to
+  `/digit-ui/citizen/all-services` (NOT to `/login`, NOT to a tile grid
+  module home).
+- `/digit-ui/citizen/all-services` is the **default landing** post-login —
+  shows "Citizen Complaint Resolution System" header with two text links
+  (`File a Complaint`, `My Complaints`).
+- `/digit-ui/citizen/pgr-home` is the **branded "Nai Pepea" PGR module
+  home** — hero with "Report a grievance, track the resolution" and PGR
+  badge. The sidebar item "Citizen Complaint R…" links here.
+- Complaint detail URL is `/digit-ui/citizen/pgr/complaints/:id` (PLURAL),
+  NOT `/complaint/details/:id` as `Routes.js` declares. The Routes.js
+  export and the actually-mounted path diverge — trust the URL bar.
+- Reopen sub-step paths (`/upload-photo/:id`, `/addional-details/:id`)
+  declared in `Routes.js` are dead — the wizard doesn't navigate to them.
+- The create-complaint wizard URL stays at
+  `/digit-ui/citizen/pgr/create-complaint/complaint-type` for ALL 6 steps;
+  per-step paths in `Routes.js` (`/pincode`, `/landmark`, etc.) are dead.
+
+### Flow 1 — Authentication
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 select language | 🚫 inferred | No splash language-selection screen on first hit; `English` defaults in header pill. Route exists per source but isn't part of the auth path on this build. |
+| 1.2 register mobile | ⚠ corrected | Page title is "Provide your mobile number" (not "Send OTP"). Button label is **"Next"**, not "Send OTP". `+254` prefix is rendered as a non-typeable hint left of the input. Helper text: "Enter your 10-digit mobile number". A `CS_LOGIN_REGISTER_WITH_EMAIL` link below mobile field is **rendered as the raw key** — localization gap. |
+| 1.3 register OTP | ⚠ corrected | Title "OTP Verification". 6 separate `maxlength=1` inputs. "Resend another OTP N secs" countdown text. Button: "Next". Mobile shown without `+254` prefix as `"Enter the OTP sent to 712345678"`. Mock OTP `123456` succeeded against the local proxy. |
+| 1.4 register name+email | 🚫 inferred | Walked the OTP-login path for an already-known number — the name+email screen wasn't triggered. Route `/citizen/register/name` likely exists but unverified. |
+| 1.5 login | ✅ verified | Same form as register-mobile, post-OTP redirects to `/citizen/all-services` (NOT to `/citizen/`). |
+
+### Flow 2 — Home & Landing
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 home tile grid | ⚠ corrected | No "module tile grid". Post-login lands on `/all-services` showing "Citizen Complaint Resolution System" + 2 yellow text links. Branded Nai Pepea hero is at `/pgr-home` (separate page). Sidebar after login: **Home / Citizen Complaint R… (truncated, → /pgr-home) / Edit Profile / Logout / HELPLINE**. |
+| 2.2 header language switch | ✅ verified | Header has an "English" pill (top-right) + bell icon. No user-icon dropdown — logout lives in the sidebar. |
+
+Sidebar additions to catalogue: **HELPLINE** item (renders raw "HELPLINE" key, no localization, click handler appears dead — no nav, no modal observed); avatar + mobile-as-name shown above sidebar items. No header user-dropdown exists in this build — the catalogue's "click user icon → logout" is incorrect.
+
+### Flow 3 — File Complaint wizard — REWRITTEN (was 8 stories, actually 6 steps)
+
+The actual wizard has **6 steps**, not 8. The catalogued Stories 3.1
+("Myself / Another User") and 3.7 (Review/Confirm) **do not exist** in
+the live UI — `selectComplaintType` step config in source is dead-code,
+and there is no review screen between photos and submit.
+
+| New step | Catalogue mapping | Title (live) | Behaviour |
+|---|---|---|---|
+| 1 | (replaces 3.1+3.2) | **Complaint Details** | Two dropdowns: Complaint Type * (e.g. `Lands`, `Innovation And Digital Economy`, `Lands` — the `menuPath` translated) + Complaint Subtype * (raw UPPER_SNAKE codes, e.g. `LAND OWNERSHIP DISPUTE`, `SURVEYING DELAY` — **not localised**). |
+| 2 | 3.3 partial | **Pin Complaint Location** | Leaflet map with reverse-geocoded address shown above pin. Search bar, draggable pin, "recenter" button bottom-right. Address auto-populates downstream Postal Code. |
+| 3 | 3.4 | **Location Details** | 4 fields: Address / Address Line 1 / Landmark / Postal Code. Postal Code is **pre-filled** from step 2 reverse-geocode (`40476` for the Nairobi CBD pin). All optional. |
+| 4 | 3.3 | **Complaint's Location** (note apostrophe) | Cascading boundary: County → Sub County → Ward. **Only 3 levels** — no Locality. Cascade gates child levels (PR #9 / CCRS#477 fix verified). Sub-County options have **duplicate entries** ("Makadara", "Kibra" each rendered twice — boundary-data quality issue). |
+| 5 | 3.5 | **Additional Details** | Single Description textarea, required. No visible char counter, no help text. |
+| 6 | 3.6+3.8 | **Upload complaint photos** | Single dropzone with camera-icon "+". Optional. Bottom button: **SUBMIT** (not NEXT — this is the final step). |
+
+Footer buttons across the wizard: **NEXT** (yellow filled) and **BACK**
+(white outline). Step 6 swaps NEXT for **SUBMIT**. URL stays at
+`/citizen/pgr/create-complaint/complaint-type` for all steps.
+
+| Story | Status |
+|---|---|
+| 3.1 myself/another | ❌ broken/dead-coded |
+| 3.2 complaint type | ✅ verified — extends to subtype too (in same step) |
+| 3.3 location cascade | ✅ verified |
+| 3.4 pincode + landmark | ✅ verified — actual fields are Address / Address Line 1 / Landmark / Postal Code |
+| 3.5 description | ✅ verified |
+| 3.6 photos | ✅ verified — also the wizard's last step |
+| 3.7 review | ❌ doesn't exist |
+| 3.8 confirmation | ⚠ corrected — see below |
+
+### Flow 3.8 — Confirmation (corrected)
+
+- URL: `/digit-ui/citizen/pgr/response` (NOT `/create-complaint/response`)
+- Title: **"Complaint Submitted"** (not `CS_COMMON_COMPLAINT_FILED_SUCCESSFULLY`)
+- Big green hero with thumbs-up icon
+- Complaint No.: e.g. `NCCG-PGR-2026-04-29-013280`
+- Body text: "The notification along with complaint number is sent to your registered mobile number. You can track the complaint status using mobile or web app."
+- **Single button**: "Go back to home page" (yellow) — there is no "View Complaint" or "File Another"
+
+### Flow 4 — My Complaints list
+
+✅ verified with corrections:
+- Card header is the **subtype name** ("Land Ownership Dispute"), not the type/menuPath as catalogued.
+- Status badge: pink/light pill `OPEN` (or `CLOSED`), then the localised workflow state below ("Pending for assignment").
+- Filed date format: `29-Apr-2026` (DD-Mon-YYYY).
+
+### Flow 5 — Complaint detail + timeline
+
+✅ verified with corrections:
+- URL: `/citizen/pgr/complaints/:id` (PLURAL) — see Routing correction.
+- Top section: heading "Complaint Summary", sub-card "Complaint Details" with rows: Complaint No. / Application Status / Complaint Type / Complaint Sub-Type / Additional Details / Filed Date / Address.
+- Address row renders the boundary chain unlocalized: e.g. `NAIROBI_CENTRAL` then "Nairobi" then `40476`. **`NAIROBI_CENTRAL` is a raw boundary code** — localization gap.
+- Map widget with lat/lng overlay + **"Open in Maps"** button (blue) — the catalogue claimed a plain `google.com/maps?q=lat,lng` link.
+- Timeline section title: "Complaint Timeline".
+- Timeline checkpoints: yellow dot for current state; gray dot for past. Each has status name + `DD/MM/YYYY` date + actor (mobile-as-name) + channel ("Filed Via Web").
+
+### Flow 6 — Rate
+
+✅ verified Story 6.1 (UI render) / 🚫 inferred Story 6.2:
+- URL: `/citizen/pgr/rate/:id` ✓ — page renders even when complaint is **not** RESOLVED (server probably rejects on submit but UI is unguarded).
+- Heading is the question itself: **"How would you rate your experience with us?"** (twice — page title + section title).
+- 5-star rating row.
+- Checkbox group "What was good ?" with options: **Services** / **Resolution Time** / **Quality of Work** / **Others** (catalogue claimed "Service quality" — actual is "Services"). Spaces around `?` in label.
+- Comments textarea.
+- Couldn't submit (would fail server-side); thank-you screen (Story 6.2) at `/citizen/pgr/response` shares the route with the file-complaint confirmation — content for rate-completion not validated.
+
+### Flow 7 — Reopen
+
+✅ verified Story 7.1 (step 0 only):
+- URL: `/citizen/pgr/reopen/:id` ✓.
+- Step 0 title: **"Choose Reason to Re-open the Complaint"**.
+- 4 **radio** options (catalogue said "select reason → formData.reason"; actual UI is a radio group, not a free-text or dropdown):
+  1. No work was done
+  2. Only partial work was done
+  3. Employee did not turn up
+  4. No permanent solution
+- "Next" button proceeds; subsequent steps not validated (state-gated, would require RESOLVED).
+- Page renders for non-RESOLVED complaints — server gates the action on submit.
+
+### Flow 8 — Profile — MAJOR shrink (was 3 stories, actually 1)
+
+⚠ corrected — the catalogue overstates this surface heavily:
+- URL: `/digit-ui/citizen/user/profile` ✓
+- Fields rendered: **Photo + Name * + Gender + Email** — that's it.
+- **No mobile field** (mobile is the immutable login key).
+- **No language switcher**.
+- **No notification toggles** (SMS / Email / WhatsApp).
+- **No change-password modal** — Story 8.2 does not exist on the citizen UI.
+- "Save" button (red, plain text).
+- Photo upload: orange "+" camera button on the placeholder triggers a file picker (catalogue Story 8.3 — present but a sub-feature, not a separate story).
+
+| Story | Status |
+|---|---|
+| 8.1 view + edit | ⚠ corrected (only Name/Gender/Email + photo) |
+| 8.2 change password | ❌ not exposed on citizen UI |
+| 8.3 upload photo | ✅ sub-feature of 8.1 |
+
+### Flow 9 — Logout
+
+✅ verified Story 9.1 with one correction:
+- Trigger is the **sidebar** "Logout" item (NOT a header dropdown — there is no header user dropdown on this build).
+- Click → modal: title "Logout", message "Are you sure you want to **Logout**", buttons **Cancel** + **Yes, Logout**.
+- Existing `tests/citizen/logout.spec.ts` matches `button:has-text("Yes")` — should ideally tighten to `Yes, Logout` (the actual label).
+
+### Flow 10 — Auxiliary
+
+| Story | Status | Notes |
+|---|---|---|
+| 10.1 all-services | ⚠ corrected — it's the **default landing**, not an aux page. Title "Citizen Complaint Resolution System". Two text links: File a Complaint (→ wizard step 1) and My Complaints (→ list). Also reachable as `/digit-ui/citizen/all-services`. |
+| 10.2 FAQ | ❌ broken — `/digit-ui/citizen/pgr-faq` returns "Something went wrong" + a "Home" button. Broken `<img>` placeholder shows raw text "error". |
+| 10.3 How it works | ❌ broken — `/digit-ui/citizen/pgr-how-it-works` shows the same "Something went wrong" page. |
+| 10.4 What's New | 🚫 inferred — no `WhatsNewCard` visible on `/all-services` or `/pgr-home`; not validated. Likely not enabled on this build. |
+
+Additional finding: `/digit-ui/citizen/pgr-home` is the **branded module home** ("Nai Pepea" / "Report a grievance, track the resolution" / "Nairobi City County Government" / PGR badge). Not in the original catalogue — add as Story 10.5 if anyone wants to test the brand surface.
+
+The `HELPLINE` sidebar item is a click-handler with no observed effect (no navigation, no modal). Either tel: link suppressed by the dev browser or a dead handler. Worth a smoke test if anyone wires this up.
+
+### Localization gaps observed
+
+Raw keys / codes leaking through to the citizen UI on this build:
+- `CS_LOGIN_REGISTER_WITH_EMAIL` (login page link below mobile field)
+- `HELPLINE` (sidebar item — likely `CS_COMMON_HELPLINE_TITLE` unset)
+- Subtype names in the create-complaint Type/Subtype dropdown (e.g. `LAND OWNERSHIP DISPUTE`)
+- `NAIROBI_CENTRAL` (boundary code in detail-page Address row)
+
+### Test-coverage opportunities revealed by validation
+
+The biggest gaps that map to **easy** Playwright wins are:
+1. **Wizard 6-step happy path** — file a complaint as a citizen end-to-end, assert the redirect to `/pgr/response`, assert the `NCCG-PGR-…` ID format, assert the back-to-home button. Today only `tests/lifecycle/pgr-ui.spec.ts` covers this and lives outside the citizen tree.
+2. **Boundary-cascade gating regression** — already covered by `pin-and-cascade-fixes-2026-04-29.spec.ts`. Add an assertion that Sub-County dedup is the data-quality gap (so we notice when Bomet-vs-Nairobi seed sorts itself out).
+3. **Subtype dropdown localization** — assert that ServiceDef subtype options aren't rendered as raw UPPER_SNAKE; today's coverage in `complaint-type-labels.spec.ts` only checks the type/menuPath, not the subtype.
+4. **Profile field set** — assert the citizen profile renders **only** Name/Gender/Email + photo — guard against unintended exposure of password / notification toggles / mobile-edit if those get re-enabled without a full review.
+5. **Aux page recovery** — when FAQ / How-It-Works are fixed, `/citizen/pgr-faq` should not render the "Something went wrong" fallback. A spec that asserts the absence of that string would flag both successful builds and the regression.
+6. **Logout label tightening** — bump `tests/citizen/logout.spec.ts` to require "Yes, Logout" rather than just "Yes".
