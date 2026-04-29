@@ -16,8 +16,10 @@ test('citizen logout redirects to login page', async ({ page }) => {
   await logoutLink.click();
   await page.waitForTimeout(1000);
 
-  // Confirm the logout dialog
-  const confirmButton = page.locator('button:has-text("Yes"), button:has-text("Logout"), button:has-text("CS_COMMON_LOGOUT")').first();
+  // Confirm the logout dialog — the actual button label per the
+  // 2026-04-29 walk is "Yes, Logout" (Story 9.1). Tighter selector
+  // than the previous "Yes" / "Logout" / "CS_COMMON_LOGOUT" union.
+  const confirmButton = page.locator('button:has-text("Yes, Logout")').first();
   await confirmButton.waitFor({ state: 'visible', timeout: 5_000 });
   await confirmButton.click();
   await page.waitForTimeout(5000);
