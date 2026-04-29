@@ -178,6 +178,26 @@ test.describe('manage/employees', () => {
 
     await page.goto(`${LIST_PATH}/create`);
 
+    // --- Pre-assertions (CCRS#404 / #419 + CCRS#416) ---
+    // CCRS#404 / #419: DOB must be marked required on the Create form. We
+    // prefer the HTML `required` attribute because the red-asterisk copy
+    // depends on a FormLabel CSS class that can shift across shadcn upgrades.
+    const dobInput = page.getByLabel(/^Date of Birth/i);
+    await expect(dobInput).toBeVisible();
+    await expect(dobInput).toHaveAttribute('required', '');
+
+    // CCRS#416 (UI): Tenant picker is present on Create and defaults to the
+    // session tenant. We accept either a native input (read via `value`) or a
+    // combobox trigger whose rendered text contains the tenant code.
+    const tenantField = page.getByLabel(/^Tenant$/i).first();
+    await expect(tenantField).toBeVisible();
+    const tenantTag = await tenantField.evaluate((el) => el.tagName.toLowerCase());
+    if (tenantTag === 'input' || tenantTag === 'select') {
+      await expect(tenantField).toHaveValue(new RegExp(TENANT_CODE, 'i'));
+    } else {
+      await expect(tenantField).toContainText(new RegExp(TENANT_CODE, 'i'));
+    }
+
     // Name auto-derives Code via DigitFormCodeInput — we override Code to our
     // PW_ value for deterministic cleanup.
     await page.getByLabel(/^Name/i).fill(`PW Employee ${uniq}`);
@@ -197,6 +217,15 @@ test.describe('manage/employees', () => {
       page.waitForURL(LIST_PATH, { timeout: 45_000 }),
       page.getByRole('button', { name: /^Create$/ }).click(),
     ]);
+
+    // CCRS#436: Success toast appears after Create. Toaster renders into a
+    // role=status live region (see src/components/ui/toaster.tsx). We settle
+    // for any status region matching /created/i within 5s.
+    // TODO: if the shadcn Toaster ships with a different ARIA role on Naipepea
+    // (some versions use role=region + aria-live), replace this selector with
+    // `page.locator('[data-sonner-toast], [role="status"]')` once verified live.
+    const toast = page.getByRole('status').filter({ hasText: /created/i }).first();
+    await expect(toast).toBeVisible({ timeout: 5_000 });
 
     // API sanity check — employee is retrievable by code.
     const auth = loadAuth();
@@ -282,6 +311,91 @@ test.describe('manage/employees', () => {
     const emp = ((direct.Employees as HrmsEmployee[]) || [])[0];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((emp.user as any)?.name).toMatch(/PW Edited/);
+  });
+
+  test('4a. edit — add CITIZEN role round-trips without JsonMappingException (CCRS#439)', async ({
+    page,
+  }, testInfo) => {
+    // Create a fresh employee via API so we own it + know it has only EMPLOYEE
+    // role (no CITIZEN yet). This keeps the test hermetic instead of relying
+    // on fishing a suitable victim out of the shared tenant.
+    const code = testCode(testInfo, 'EMP_ROLE');
+    const uniq = code.split('_').pop() || '44444';
+    const mobile = `07${String(uniq).padStart(8, '0')}`.slice(0, 10);
+    createdCodes.add(code);
+
+    const auth = loadAuth();
+    await postJson(auth, '/egov-hrms/employees/_create?tenantId=' + TENANT_CODE, {
+      RequestInfo: requestInfo(auth, '_create'),
+      Employees: [{
+        tenantId: TENANT_CODE, code, employeeStatus: 'EMPLOYED', employeeType: 'PERMANENT',
+        dateOfAppointment: Date.now() - 24 * 3600_000,
+        user: {
+          userName: code.toLowerCase().replace(/_/g, '.'),
+          name: `PW Role ${uniq}`, mobileNumber: mobile,
+          type: 'EMPLOYEE', active: true, gender: 'MALE', dob: 631152000000,
+          password: 'eGov@123', tenantId: TENANT_CODE,
+          roles: [{ code: 'EMPLOYEE', name: 'Employee', tenantId: TENANT_CODE }],
+        },
+        jurisdictions: [{ boundary: 'NAIROBI_CITY', boundaryType: 'County', hierarchy: 'ADMIN', hierarchyType: 'ADMIN', tenantId: TENANT_CODE, isActive: true }],
+        assignments: [{ department: 'DEPT_7', designation: 'DESIG_58', fromDate: Date.now() - 24 * 3600_000, isCurrentAssignment: true }],
+      }],
+    });
+
+    // Confirm the seed employee has no CITIZEN role yet — if it somehow does
+    // (roles seeded server-side?), skip rather than produce a misleading pass.
+    const preSearch = await postJson(auth,
+      `${HRMS_SEARCH}?tenantId=${TENANT_CODE}&codes=${encodeURIComponent(code)}&limit=1&offset=0`,
+      { RequestInfo: requestInfo(auth) });
+    const preEmp = ((preSearch.Employees as HrmsEmployee[]) || [])[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const preRoles = ((preEmp?.user as any)?.roles || []) as Array<{ code?: string }>;
+    expect(preRoles.some((r) => r.code === 'CITIZEN')).toBe(false);
+
+    // Open Edit via list-row click (same entry-point as test 4).
+    await page.goto(LIST_PATH);
+    await page.getByPlaceholder(/search/i).first().fill(code);
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.getByRole('row').filter({ hasText: code }).click();
+    await page.getByRole('button', { name: /^Edit$/i }).click();
+
+    // Roles section — RolesEditor is a combobox. Typing "CITIZEN" should
+    // surface a match; click the first option. We key on `combobox` role
+    // rather than label text because the label copy varies ("Roles" vs
+    // "Assign roles") across tenants.
+    const roleCombobox = page.getByRole('combobox', { name: /^Roles?$/i }).first();
+    await expect(roleCombobox).toBeVisible({ timeout: 10_000 });
+    await roleCombobox.click();
+    await roleCombobox.fill('CITIZEN');
+    await page.getByRole('option', { name: /CITIZEN/i }).first().click();
+
+    await page.getByRole('button', { name: /^Save$/i }).click();
+
+    // No JsonMappingException banner / toast — that regression would surface
+    // as an error toast or an in-form error region.
+    const errorToast = page.getByRole('status').filter({ hasText: /JsonMappingException/i });
+    await expect(errorToast).toHaveCount(0);
+    const errorBanner = page.getByText(/JsonMappingException/i);
+    await expect(errorBanner).toHaveCount(0);
+
+    // Within 5s, the mutation is visible server-side — CITIZEN is now in the
+    // user's roles array. We poll HRMS rather than DOM because the list may
+    // re-render without showing roles inline.
+    await expect.poll(async () => {
+      const res = await postJson(auth,
+        `${HRMS_SEARCH}?tenantId=${TENANT_CODE}&codes=${encodeURIComponent(code)}&limit=1&offset=0`,
+        { RequestInfo: requestInfo(auth) });
+      const emp = ((res.Employees as HrmsEmployee[]) || [])[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const roles = ((emp?.user as any)?.roles || []) as Array<{ code?: string }>;
+      return roles.some((r) => r.code === 'CITIZEN');
+    }, { timeout: 5_000 }).toBeTruthy();
+
+    // TODO: role-removal cleanup — afterAll soft-deactivates the employee,
+    // which cascades active=false onto the user, so the CITIZEN role is
+    // effectively quarantined. A dedicated "remove role via HRMS _update"
+    // helper should land in helpers/teardown.ts so we can revert role adds
+    // on long-lived employees without nuking the whole record.
   });
 
   test('5. deactivate — INACTIVE + deactivation reason applied', async ({
