@@ -3,14 +3,13 @@ import { defineConfig } from '@playwright/test';
 const BASE_URL = process.env.BASE_URL || 'https://naipepea.digit.org';
 
 export default defineConfig({
-  // Pick up both the legacy PGR lifecycle specs under tests/specs/* and the
-  // new manage-surface specs under specs/*. The setup project below writes
-  // auth.json before any spec project runs.
+  // Specs live under tests/<persona>/ (citizen, employee, admin) plus
+  // tests/lifecycle/ for cross-persona end-to-end flows. The setup project
+  // below writes auth.json before any spec project runs.
   testDir: '.',
   testMatch: [
-    'tests/specs/**/*.spec.ts',
-    'specs/**/*.spec.ts',
-    'auth.setup.ts',
+    'tests/**/*.spec.ts',
+    'tests/fixtures/auth.setup.ts',
   ],
   timeout: 120_000,
   expect: { timeout: 15_000 },
@@ -29,7 +28,7 @@ export default defineConfig({
     {
       // Runs first — performs UI login and writes storageState to auth.json.
       name: 'setup',
-      testMatch: /auth\.setup\.ts$/,
+      testMatch: /tests\/fixtures\/auth\.setup\.ts$/,
     },
     {
       name: 'chromium',
@@ -39,7 +38,7 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       // Don't try to run setup itself as part of the chromium project.
-      testIgnore: /auth\.setup\.ts$/,
+      testIgnore: /tests\/fixtures\/auth\.setup\.ts$/,
     },
   ],
 });

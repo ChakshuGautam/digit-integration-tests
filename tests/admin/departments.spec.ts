@@ -14,9 +14,9 @@ import {
   mdmsCreate,
   mdmsSearch,
   type AuthInfo,
-} from '../../helpers/api';
-import { testCode, testCodeIndexed } from '../../helpers/codes';
-import { cleanupMdms } from '../../helpers/teardown';
+} from '../utils/manage/api';
+import { testCode, testCodeIndexed } from '../utils/manage/codes';
+import { cleanupMdms } from '../utils/manage/teardown';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const SCHEMA = 'common-masters.Department';
@@ -350,7 +350,7 @@ test.describe('manage/departments', () => {
     expect(pre.auditDetails).toBeTruthy();
 
     // Import on demand — keeps top-level imports tidy.
-    const { mdmsUpdate } = await import('../../helpers/api');
+    const { mdmsUpdate } = await import('../utils/manage/api');
     pre.data = { ...pre.data, description: 'Edited description via API' };
     const updated = await mdmsUpdate(auth, pre, true);
     expect((updated.data as Record<string, unknown>).description).toBe(
@@ -415,7 +415,7 @@ async function searchByCodes(
   auth: AuthInfo,
   codes: string[],
 ): Promise<Array<{ uniqueIdentifier: string; isActive?: boolean }>> {
-  const { mdmsSearch } = await import('../../helpers/api');
+  const { mdmsSearch } = await import('../utils/manage/api');
   return mdmsSearch(auth, TENANT_CODE, SCHEMA, {
     uniqueIdentifiers: codes,
     limit: codes.length + 5,

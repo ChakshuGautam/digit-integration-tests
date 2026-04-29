@@ -19,8 +19,8 @@
  * doesn't implement.
  */
 import { test, expect } from '@playwright/test';
-import { loadAuth, type AuthInfo } from '../../helpers/api';
-import { testCode } from '../../helpers/codes';
+import { loadAuth, type AuthInfo } from '../utils/manage/api';
+import { testCode } from '../utils/manage/codes';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const LIST_PATH = '/configurator/manage/users';

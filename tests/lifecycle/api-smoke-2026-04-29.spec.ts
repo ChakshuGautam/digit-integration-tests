@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginEmployee, mdmsSearch, pgrSearch, hrmsSearch, workflowBusinessService } from './helpers/api.js';
+import { loginEmployee, mdmsSearch, pgrSearch, hrmsSearch, workflowBusinessService } from '../utils/launch-fixes/api.js';
 
 test.describe('00-smoke: API helpers reach naipepea', () => {
   test('login returns token', async () => {

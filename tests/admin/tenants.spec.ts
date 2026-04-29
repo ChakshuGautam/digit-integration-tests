@@ -23,9 +23,9 @@ import {
   mdmsCreate,
   mdmsSearch,
   type MdmsRecord,
-} from '../../helpers/api';
-import { testCode } from '../../helpers/codes';
-import { cleanupMdms } from '../../helpers/teardown';
+} from '../utils/manage/api';
+import { testCode } from '../utils/manage/codes';
+import { cleanupMdms } from '../utils/manage/teardown';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const SCHEMA = 'tenant.tenants';

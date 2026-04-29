@@ -11,7 +11,7 @@
  *   7. Verify breakdown table with tabs
  */
 import { test, expect } from '@playwright/test';
-import { loginConfigurator, CONFIGURATOR_BASE } from '../../utils/configurator-auth';
+import { loginConfigurator, CONFIGURATOR_BASE } from '../utils/configurator-auth';
 
 test.describe('PGR Dashboard', () => {
   test.beforeEach(async ({ page }) => {

@@ -17,9 +17,9 @@ import {
   mdmsSearch,
   type AuthInfo,
   type MdmsRecord,
-} from '../../helpers/api';
-import { testCode, testCodeIndexed } from '../../helpers/codes';
-import { cleanupMdms } from '../../helpers/teardown';
+} from '../utils/manage/api';
+import { testCode, testCodeIndexed } from '../utils/manage/codes';
+import { cleanupMdms } from '../utils/manage/teardown';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const CITY_TENANT = process.env.DIGIT_TENANT || `${TENANT_CODE}.nairobi`;

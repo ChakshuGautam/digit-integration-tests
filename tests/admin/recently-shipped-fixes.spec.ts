@@ -20,8 +20,8 @@
  *            (real rollback compensators are blocked on backend)
  */
 import { test, expect } from '@playwright/test';
-import { getDigitToken, loginViaApi } from '../../tests/utils/auth';
-import { BASE_URL, TENANT, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../../tests/utils/env';
+import { getDigitToken, loginViaApi } from '../utils/auth';
+import { BASE_URL, TENANT, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../utils/env';
 
 const HRMS_SEARCH = `${BASE_URL}/egov-hrms/employees/_search`;
 const PGR_SEARCH = `${BASE_URL}/pgr-services/v2/request/_search`;

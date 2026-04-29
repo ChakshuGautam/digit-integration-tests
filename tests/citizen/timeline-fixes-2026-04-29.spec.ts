@@ -1,6 +1,6 @@
 // Citizen timeline + rating display. UI test against the live digit-ui.
 import { test, expect } from '@playwright/test';
-import { loginEmployee, pgrSearch } from './helpers/api.js';
+import { loginEmployee, pgrSearch } from '../utils/launch-fixes/api.js';
 
 const SR_ID = 'NCCG-PGR-2026-04-28-011862'; // verified: CLOSEDAFTERRESOLUTION, rating=4
 
