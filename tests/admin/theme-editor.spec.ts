@@ -14,8 +14,8 @@
  * Auth: relies on the project-level auth.setup.ts storageState (auth.json).
  */
 import { test, expect } from '@playwright/test';
-import { getDigitToken } from '../../utils/auth';
-import { BASE_URL, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../../utils/env';
+import { getDigitToken } from '../utils/auth';
+import { BASE_URL, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../utils/env';
 
 const THEME_RECORD_ID = 'kenya-green';
 

@@ -13,9 +13,11 @@ npx playwright install chromium
 # Run everything against the default environment (Nairobi)
 npm test
 
-# Just the new manage-surface specs
-npm run test:manage
-npm run test:smoke
+# Run a single persona's flows
+npm run test:citizen
+npm run test:employee
+npm run test:admin
+npm run test:lifecycle
 
 # Interactive runner
 npm run test:ui
@@ -56,92 +58,75 @@ See `.env.example` for a complete template.
 
 ## Test Suites
 
-### PGR Lifecycle — API only (`pgr-lifecycle-api.spec.ts`)
+Specs are organised by **persona** (citizen / employee / admin) plus a
+shared `lifecycle/` directory for cross-persona end-to-end flows. Date-
+stamped specs (`*-fixes-YYYY-MM-DD.spec.ts`) capture regressions for a
+specific fix wave; future fix waves should add assertions to the
+existing persona spec, not a new dated tree.
 
-Pure API tests — no browser, runs in ~2 seconds. Tests the complete PGR complaint lifecycle:
+### `tests/citizen/`
 
-1. Acquire admin + citizen tokens
-2. Citizen creates complaint
-3. Admin assigns complaint
-4. Admin resolves complaint
-5. Citizen verifies resolved status
+- `login.spec.ts` — OTP login (auto-register + fixed OTP)
+- `logout.spec.ts` — logout flow ends on the login page
+- `complaint-details.spec.ts` — detail page loads without crashing
+- `complaint-type-labels.spec.ts` — translated category names
+- `pgr-fixes.spec.ts` — citizen-side regression smoke (CCRS#421/#422/#441)
+- `create-fixes-2026-04-29.spec.ts` — pincode + AddressOne/Two populators
+- `timeline-fixes-2026-04-29.spec.ts` — rating + timeline localization
 
-```bash
-npx playwright test tests/specs/pgr-lifecycle-api.spec.ts
-```
+### `tests/employee/`
 
-### PGR Lifecycle — UI only (`pgr-lifecycle-ui.spec.ts`)
+- `login.spec.ts` — token + UI session injection
+- `pgr-fixes-2026-04-29.spec.ts` — assign workflow, role filter, REJECT reasons
 
-Full browser-based tests — every action done through the UI. Takes ~4 minutes:
+### `tests/admin/`
 
-1. Citizen logs in via OTP (UI)
-2. Citizen creates complaint via wizard (UI — 6-step form)
-3. Admin sees complaint in PGR inbox (UI)
-4. Admin assigns complaint via Take Action modal (UI)
-5. Admin resolves complaint via Take Action modal (UI)
-6. Citizen sees resolved complaint on complaints page (UI)
+Configurator manage surface (`/configurator/manage/*`) plus admin-scoped
+regression checks:
+`departments`, `designations`, `complaint-types`, `complaints`,
+`employees`, `users`, `tenants`, `boundary-hierarchies`, `localization`,
+`theme-editor`, `theme-applied`, `target-tenant-onboarding`,
+`pgr-dashboard`, `hardcoding`, `recently-shipped-fixes`,
+`configurator-mdms-fixes-2026-04-29`.
 
-```bash
-npx playwright test tests/specs/pgr-lifecycle-ui.spec.ts
-```
-
-### Authentication (`citizen-login.spec.ts`, `employee-login.spec.ts`)
-
-- Citizen OTP login flow (auto-register + fixed OTP)
-- Employee login: valid credentials return access token, bad credentials rejected
-- API session injection loads employee home
-
-### Verification (`verify-complaint-details.spec.ts`, `verify-ct-labels.spec.ts`, `verify-logout.spec.ts`)
-
-- Complaint details page loads and shows expected data
-- Complaint type labels display correctly
-- Logout flow works end-to-end
-
-### Configurator (`configurator/*.spec.ts`)
-
-Dashboard configurator tests for PGR charting pages.
-
-### Configurator manage surface (`specs/manage/*.spec.ts`, `specs/smoke/*.spec.ts`)
-
-E2E coverage of `/configurator/manage/{departments,designations,complaints}`
-plus a smoke file that catches recently-cleaned hardcoding (no `'pg'`
-literals leaking into payloads, login placeholder shows `ke`, etc.).
-
-Every test that creates data uses a `PW_${hash}_${kind}` prefix and an
+Specs that create data use a `PW_${hash}_${kind}` prefix and an
 `afterAll` that soft-deletes via the helpers (`mdms _update isActive=false`
 for masters, PGR `REJECT` workflow action for complaints). Tests pull
 live data dynamically — no hardcoded `ContractDispute` / `DEPT_14` /
 `PGR_LME assignee uuid`; if the tenant lacks an HRMS employee with the
 needed role, the relevant test calls `test.skip()` with a clear reason.
 
+### `tests/lifecycle/`
+
+Cross-persona end-to-end flows:
+- `pgr-api.spec.ts` — pure API lifecycle (~2s)
+- `pgr-ui.spec.ts` — pure UI lifecycle (~4 min)
+- `pgr-escalation-api.spec.ts` — manual ESCALATE chain
+- `api-smoke-2026-04-29.spec.ts` — API helpers reach the deployment
+- `filestore-fixes-2026-04-29.spec.ts` — JPEG upload regression
+
 ## Project Structure
 
 ```
-auth.setup.ts                         # UI login → auth.json (storageState)
-helpers/
-├── api.ts                            # Reads auth.json, exposes mdms/pgr/hrms
-├── codes.ts                          # PW_${hash}_${kind} per-test codes
-└── teardown.ts                       # cleanupMdms / cleanupPgrComplaints
-specs/
-├── smoke/hardcoding.spec.ts          # 4 hardcoding regression checks
-└── manage/
-    ├── departments.spec.ts           # 5 tests
-    ├── designations.spec.ts          # 6 tests
-    └── complaints.spec.ts            # 9 tests
 tests/
-├── specs/
-│   ├── pgr-lifecycle-api.spec.ts     # Pure API lifecycle (5 tests)
-│   ├── pgr-lifecycle-ui.spec.ts      # Pure UI lifecycle (6 tests)
-│   ├── citizen-login.spec.ts         # Citizen OTP login
-│   ├── employee-login.spec.ts        # Employee auth
-│   ├── verify-complaint-details.spec.ts
-│   ├── verify-ct-labels.spec.ts
-│   ├── verify-logout.spec.ts
-│   └── configurator/                 # Dashboard config tests
+├── fixtures/
+│   └── auth.setup.ts                 # UI login → auth.json (storageState)
+├── citizen/                          # citizen persona flows
+├── employee/                         # employee persona flows
+├── admin/                            # configurator + manage surface
+├── lifecycle/                        # cross-persona end-to-end
 └── utils/
-    ├── auth.ts                       # Token acquisition + API session injection
-    ├── citizen-login.ts              # Citizen OTP login helper
-    └── env.ts                        # Environment config (all env vars)
+    ├── auth.ts                       # token acquisition (legacy oauth path)
+    ├── citizen-login.ts              # citizen OTP login UI helper
+    ├── configurator-auth.ts          # configurator localStorage injection
+    ├── env.ts                        # environment config
+    ├── manage/                       # admin spec helpers
+    │   ├── api.ts                    # reads auth.json, mdms/pgr/hrms calls
+    │   ├── codes.ts                  # PW_${hash}_${kind} test codes
+    │   └── teardown.ts               # cleanupMdms / cleanupPgrComplaints
+    └── launch-fixes/                 # date-stamped fix-wave helpers
+        ├── api.ts
+        └── ui.ts
 ```
 
 ## CI

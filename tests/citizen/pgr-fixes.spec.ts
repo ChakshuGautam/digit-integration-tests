@@ -13,8 +13,8 @@
  *          lifecycle fixture.
  */
 import { test, expect } from '@playwright/test';
-import { citizenOtpLogin } from '../../tests/utils/citizen-login';
-import { BASE_URL, generateCitizenPhone } from '../../tests/utils/env';
+import { citizenOtpLogin } from '../utils/citizen-login';
+import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
 test.describe('citizen PGR regression — shipped fixes', () => {
   test('#421 — landing ServicesSection top padding matches side padding', async ({ page }) => {

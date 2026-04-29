@@ -10,7 +10,7 @@
 //       PGR _create call (that's the contract the form mapping
 //       eventually exercises).
 import { test, expect } from '@playwright/test';
-import { loginEmployee } from './helpers/api.js';
+import { loginEmployee } from '../utils/launch-fixes/api.js';
 
 const BASE = process.env.NAIPEPEA_BASE ?? 'https://naipepea.digit.org';
 

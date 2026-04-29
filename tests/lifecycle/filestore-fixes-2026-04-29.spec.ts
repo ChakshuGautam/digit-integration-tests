@@ -1,6 +1,6 @@
 // #474 filestore upload. Deterministic repro via direct API.
 import { test, expect } from '@playwright/test';
-import { loginEmployee, uploadFile } from './helpers/api.js';
+import { loginEmployee, uploadFile } from '../utils/launch-fixes/api.js';
 
 // 517-byte synthetic JPEG that triggers EG_FILESTORE_INPUT_ERROR.
 const TINY_JPEG_HEX =

@@ -18,8 +18,8 @@
  *     the server don't pass silently.
  */
 import { test, expect } from '@playwright/test';
-import { loadAuth, type AuthInfo } from '../../helpers/api';
-import { testCode } from '../../helpers/codes';
+import { loadAuth, type AuthInfo } from '../utils/manage/api';
+import { testCode } from '../utils/manage/codes';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const CITY_TENANT = process.env.DIGIT_TENANT || `${TENANT_CODE}.nairobi`;

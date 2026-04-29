@@ -20,8 +20,8 @@
  */
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
-import { loadAuth, employeeSearch, type AuthInfo } from '../../helpers/api';
-import { testCode, testCodeIndexed } from '../../helpers/codes';
+import { loadAuth, employeeSearch, type AuthInfo } from '../utils/manage/api';
+import { testCode, testCodeIndexed } from '../utils/manage/codes';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const LIST_PATH = '/configurator/manage/employees';

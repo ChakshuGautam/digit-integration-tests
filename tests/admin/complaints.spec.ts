@@ -19,8 +19,8 @@ import {
   pgrCount,
   employeeSearch,
   type AuthInfo,
-} from '../../helpers/api';
-import { cleanupPgrComplaints } from '../../helpers/teardown';
+} from '../utils/manage/api';
+import { cleanupPgrComplaints } from '../utils/manage/teardown';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
 const CITY_TENANT = process.env.DIGIT_TENANT || `${TENANT_CODE}.nairobi`;
