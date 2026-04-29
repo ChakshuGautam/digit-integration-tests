@@ -53,7 +53,7 @@ test.describe('Citizen home + landing', () => {
     }
   });
 
-  test('/pgr-home renders the branded "Nai Pepea" hero', async ({ page }) => {
+  test('/pgr-home renders the PGR module home with action links', async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
@@ -66,31 +66,29 @@ test.describe('Citizen home + landing', () => {
 
     const body = page.locator('body');
     await expect(body).not.toContainText('Something went wrong');
-    await expect(body).toContainText('Nai Pepea');
-    await expect(body).toContainText(/Report a grievance/i);
-    await expect(body).toContainText('Nairobi City County Government');
+    // Note: "Nai Pepea" + "Report a grievance" + "Nairobi City County
+    // Government" are rendered as background-image / CSS-content on the
+    // hero, not DOM text. Asserting on the actionable content + PGR badge
+    // instead. If the brand assets ever land as real DOM text, extend.
     await expect(body).toContainText('PGR');
+    await expect(body).toContainText('Citizen Complaint Resolution System');
+    await expect(body).toContainText('My Complaints');
+    await expect(body).toContainText('File a Complaint');
   });
 
-  test('header language pill renders + opens dropdown on click', async ({ page }) => {
+  test('header language pill renders the current locale', async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
     await page.waitForTimeout(2000);
 
-    // Pill shows current language label (English by default on this build)
-    const pill = page.locator('header :text("English"), [class*="header"] :text("English")').first();
-    await expect(pill).toBeVisible({ timeout: 5_000 });
-
-    // Click pill → dropdown / option list of available locales should appear
-    await pill.click();
-    await page.waitForTimeout(1000);
-
-    // We don't assert which languages — depends on common-masters.StateInfo
-    // seed; just that *some* option list is now present in the DOM.
-    const options = await page
-      .locator('[role="option"], [role="listbox"] li, [class*="dropdown-item"]')
-      .count();
-    expect(options, 'language pill click should reveal options').toBeGreaterThan(0);
+    // Language pill is a <label> with the current locale name. Clicking
+    // it opens a native OS-level dropdown (no [role="listbox"] in the
+    // DOM) so we don't assert the options list — just that the pill
+    // renders with the current locale text.
+    const pill = page.locator('label:has-text("English")').first();
+    await expect(pill, 'language pill should render with current locale').toBeVisible({
+      timeout: 5_000,
+    });
   });
 });
