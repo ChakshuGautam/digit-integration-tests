@@ -45,25 +45,22 @@ test.describe('citizen PGR regression — shipped fixes', () => {
     await citizenOtpLogin(page, generateCitizenPhone());
 
     // Scroll the home page down so we can observe the reset on navigation.
-    // Different content heights per tenant, so use an offset that'd be
-    // visible on any reasonable viewport.
     await page.evaluate(() => window.scrollTo(0, 600));
     const before = await page.evaluate(() => window.scrollY);
     expect(before).toBeGreaterThan(100);
 
-    // Enter the create-complaint wizard. The button text varies by
-    // localization; match the citizen services card for Complaint.
-    const complaintCard = page
-      .locator('[class*="CardBasedOptions"], .digit-card')
-      .filter({ hasText: /Complaint|COMPLAINT|PGR/i })
+    // Click the "File a Complaint" link on /all-services. The earlier
+    // CardBasedOptions / .digit-card layout no longer renders on this
+    // build — the entry point is now a plain anchor (verified
+    // 2026-04-30 walk).
+    const fileLink = page
+      .locator('a, [role="link"]')
+      .filter({ hasText: /File a Complaint/i })
       .first();
-    await complaintCard.click({ timeout: 10_000 });
+    await fileLink.click({ timeout: 10_000 });
 
-    // Wait for navigation + new-page render. Paint timing varies; poll.
     await page.waitForURL(/pgr|complaint/i, { timeout: 15_000 });
     await page.waitForLoadState('domcontentloaded');
-
-    // Allow one frame for the effect + useEffect scrollTo to run.
     await page.waitForTimeout(500);
 
     const after = await page.evaluate(() => window.scrollY);
