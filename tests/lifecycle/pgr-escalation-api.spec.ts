@@ -189,53 +189,76 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`Admin and citizen (${CITIZEN_PHONE}) tokens acquired`);
   });
 
-  test('2 — ensure ESCALATE action exists in PGR workflow', async () => {
+  test('2 — ensure PGR workflow config is correct (ESCALATE, role grants, nextState fix)', async () => {
     const biz = await fetchPgrWorkflow(adminToken);
     expect(biz).toBeTruthy();
 
-    // Find the PENDINGATLME state
-    const pendingAtLme = biz.states.find((s: any) => s.applicationStatus === 'PENDINGATLME');
+    const findState = (status: string) => biz.states.find((s: any) => s.applicationStatus === status);
+    const pendingAtLme = findState('PENDINGATLME');
+    const pendingForAssign = findState('PENDINGFORASSIGNMENT');
+    const pendingAtSup = findState('PENDINGATSUPERVISOR');
+    const resolved = findState('RESOLVED');
     expect(pendingAtLme).toBeTruthy();
+    expect(pendingForAssign).toBeTruthy();
+    expect(pendingAtSup).toBeTruthy();
+    expect(resolved).toBeTruthy();
 
-    // Check if ESCALATE action already exists
-    const hasEscalate = (pendingAtLme.actions || []).some((a: any) => a.action === 'ESCALATE');
+    let dirty = false;
 
-    if (hasEscalate) {
-      console.log('ESCALATE action already exists on PENDINGATLME — no update needed');
-      return;
+    // (a) ESCALATE self-loop on PENDINGATLME
+    if (!(pendingAtLme.actions || []).some((a: any) => a.action === 'ESCALATE')) {
+      pendingAtLme.actions.push({
+        tenantId: TENANT, currentState: pendingAtLme.uuid, action: 'ESCALATE',
+        nextState: pendingAtLme.uuid,
+        roles: ['GRO', 'PGR_LME', 'AUTO_ESCALATE', 'PGR_VIEWER'],
+        active: true,
+      });
+      dirty = true;
+      console.log('+ ESCALATE on PENDINGATLME');
     }
 
-    console.log('ESCALATE action missing on PENDINGATLME — adding it now');
+    // (b) ESCALATE self-loop on PENDINGFORASSIGNMENT
+    if (!(pendingForAssign.actions || []).some((a: any) => a.action === 'ESCALATE')) {
+      pendingForAssign.actions.push({
+        tenantId: TENANT, currentState: pendingForAssign.uuid, action: 'ESCALATE',
+        nextState: pendingForAssign.uuid,
+        roles: ['GRO', 'AUTO_ESCALATE', 'PGR_VIEWER'],
+        active: true,
+      });
+      dirty = true;
+      console.log('+ ESCALATE on PENDINGFORASSIGNMENT');
+    }
 
-    // Add ESCALATE as a self-loop on PENDINGATLME
-    // Must include currentState, tenantId, active for persistence
-    pendingAtLme.actions.push({
-      tenantId: TENANT,
-      currentState: pendingAtLme.uuid,
-      action: 'ESCALATE',
-      nextState: pendingAtLme.uuid,  // self-loop: stays in PENDINGATLME
-      roles: ['GRO', 'PGR_LME', 'AUTO_ESCALATE', 'PGR_VIEWER'],
-      active: true,
-    });
+    // (c) FORWARD on PENDINGATLME should allow GRO so admin can test supervisor-forward path
+    const forwardAction = (pendingAtLme.actions || []).find((a: any) => a.action === 'FORWARD');
+    if (forwardAction && !forwardAction.roles.includes('GRO')) {
+      forwardAction.roles = [...forwardAction.roles, 'GRO'];
+      dirty = true;
+      console.log('+ GRO role on FORWARD');
+    }
 
-    // Also add ESCALATE on PENDINGFORASSIGNMENT if it doesn't have it
-    const pendingForAssign = biz.states.find((s: any) => s.applicationStatus === 'PENDINGFORASSIGNMENT');
-    if (pendingForAssign) {
-      const hasEscalatePfa = (pendingForAssign.actions || []).some((a: any) => a.action === 'ESCALATE');
-      if (!hasEscalatePfa) {
-        pendingForAssign.actions.push({
-          tenantId: TENANT,
-          currentState: pendingForAssign.uuid,
-          action: 'ESCALATE',
-          nextState: pendingForAssign.uuid,
-          roles: ['GRO', 'AUTO_ESCALATE', 'PGR_VIEWER'],
-          active: true,
-        });
-        console.log('Also added ESCALATE on PENDINGFORASSIGNMENT');
+    // (d) RESOLVEBYSUPERVISOR on PENDINGATSUPERVISOR should target RESOLVED (not orphaned RESOLVEDBYSUPERVISOR)
+    //     and allow GRO so admin can test supervisor-resolve path
+    const resolveBySup = (pendingAtSup.actions || []).find((a: any) => a.action === 'RESOLVEBYSUPERVISOR');
+    if (resolveBySup) {
+      if (resolveBySup.nextState !== resolved.uuid) {
+        resolveBySup.nextState = resolved.uuid;
+        dirty = true;
+        console.log('+ RESOLVEBYSUPERVISOR.nextState → RESOLVED');
+      }
+      if (!resolveBySup.roles.includes('GRO')) {
+        resolveBySup.roles = [...resolveBySup.roles, 'GRO'];
+        dirty = true;
+        console.log('+ GRO role on RESOLVEBYSUPERVISOR');
       }
     }
 
-    // Update the business service
+    if (!dirty) {
+      console.log('PGR workflow config already correct — no update needed');
+      return;
+    }
+
+    // Push the update
     const resp = await fetch(
       `${BASE_URL}/egov-workflow-v2/egov-wf/businessservice/_update?tenantId=${TENANT}`,
       {
@@ -247,21 +270,27 @@ test.describe.serial('PGR escalation — API only', () => {
         }),
       },
     );
+    await assertOk(resp, 'Workflow _update');
 
-    const result = await assertOk(resp, 'Workflow _update');
-    const updatedBiz = result.BusinessServices?.[0];
-    const updatedState = updatedBiz.states.find((s: any) => s.applicationStatus === 'PENDINGATLME');
-    const nowHasEscalate = (updatedState.actions || []).some((a: any) => a.action === 'ESCALATE');
-    expect(nowHasEscalate).toBe(true);
-
-    // Verify persistence: re-fetch and check
+    // Re-fetch and verify everything we changed
     const verifyBiz = await fetchPgrWorkflow(adminToken);
-    const verifyState = verifyBiz.states.find((s: any) => s.applicationStatus === 'PENDINGATLME');
-    const persisted = (verifyState.actions || []).some((a: any) => a.action === 'ESCALATE');
-    if (!persisted) {
-      throw new Error('ESCALATE action returned in _update response but did NOT persist — phantom-200. Check workflow persister.');
-    }
-    console.log('ESCALATE action added and verified in PGR workflow');
+    const vFind = (status: string) => verifyBiz.states.find((s: any) => s.applicationStatus === status);
+    const vAtLme = vFind('PENDINGATLME');
+    const vForAssign = vFind('PENDINGFORASSIGNMENT');
+    const vAtSup = vFind('PENDINGATSUPERVISOR');
+    const vResolved = vFind('RESOLVED');
+
+    expect((vAtLme.actions || []).some((a: any) => a.action === 'ESCALATE')).toBe(true);
+    expect((vForAssign.actions || []).some((a: any) => a.action === 'ESCALATE')).toBe(true);
+
+    const vForward = (vAtLme.actions || []).find((a: any) => a.action === 'FORWARD');
+    expect(vForward?.roles).toContain('GRO');
+
+    const vResolveBySup = (vAtSup.actions || []).find((a: any) => a.action === 'RESOLVEBYSUPERVISOR');
+    expect(vResolveBySup?.nextState).toBe(vResolved.uuid);
+    expect(vResolveBySup?.roles).toContain('GRO');
+
+    console.log('PGR workflow config verified after update');
   });
 
   test('3 — ensure 2-level employee hierarchy (reportingTo) in HRMS', async () => {
@@ -538,5 +567,205 @@ test.describe.serial('PGR escalation — API only', () => {
     const detail = resolvedService.additionalDetail || {};
     expect(detail.escalationLevel).toBeGreaterThanOrEqual(1);
     console.log(`${serviceRequestId} → RESOLVED (escalationLevel: ${detail.escalationLevel})`);
+  });
+
+  // -----------------------------------------------------------------------
+  // PENDINGFORASSIGNMENT escalation path (tests 10–12)
+  //
+  // Exercises the ESCALATE self-loop on PENDINGFORASSIGNMENT — an early-stage
+  // escalation before anyone has been assigned. Used when the initial
+  // assignment is stuck and a human supervisor wants to re-route the
+  // complaint pre-assignment.
+  //
+  // v2 note: the supervisor-jump path (FORWARD → PENDINGATSUPERVISOR →
+  // RESOLVEBYSUPERVISOR) has been removed. Both manual (ESCALATE) and
+  // scheduler-triggered (SLA_ESCALATE) escalations are now self-loops on
+  // PENDINGFORASSIGNMENT and PENDINGATLME.
+  // -----------------------------------------------------------------------
+  let pfaComplaintId: string;
+
+  test('10 — citizen creates complaint for PENDINGFORASSIGNMENT escalation', async () => {
+    test.skip(!prerequisitesMet, 'Prerequisites not met');
+    const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_create`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${citizenToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: citizenToken, userInfo: citizenUserInfo },
+        service: {
+          tenantId: TENANT,
+          serviceCode: SERVICE_CODE,
+          description: `E2E PFA-escalate — ${new Date().toISOString()}`,
+          source: 'web',
+          address: { city: TENANT, locality: { code: LOCALITY_CODE }, geoLocation: { latitude: 0, longitude: 0 } },
+          citizen: { name: CITIZEN_NAME, mobileNumber: CITIZEN_PHONE },
+        },
+        workflow: { action: 'APPLY', verificationDocuments: [] },
+      }),
+    });
+    const data = await assertOk(resp, 'PGR _create (pfa path)');
+    pfaComplaintId = data.ServiceWrappers[0].service.serviceRequestId;
+    expect(data.ServiceWrappers[0].service.applicationStatus).toBe('PENDINGFORASSIGNMENT');
+    console.log(`Third complaint created: ${pfaComplaintId} → PENDINGFORASSIGNMENT`);
+  });
+
+  test('11 — ESCALATE from PENDINGFORASSIGNMENT (self-loop, pre-assignment)', async () => {
+    test.skip(!prerequisitesMet, 'Prerequisites not met');
+    const fullService = await fetchComplaint(adminToken, adminUserInfo, pfaComplaintId);
+    const existingDetail = fullService.additionalDetail || {};
+    fullService.additionalDetail = {
+      ...existingDetail,
+      escalationLevel: 1,
+      lastEscalatedAt: Date.now(),
+      preAssignmentEscalation: true,
+    };
+    delete fullService.additionalDetails;
+
+    const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        service: fullService,
+        workflow: {
+          action: 'ESCALATE',
+          assignees: [employeeUuid],
+          comments: 'Pre-assignment escalation — level 1',
+        },
+      }),
+    });
+    const data = await assertOk(resp, 'PGR ESCALATE (PENDINGFORASSIGNMENT)');
+    // Self-loop: status stays in PENDINGFORASSIGNMENT
+    expect(data.ServiceWrappers[0].service.applicationStatus).toBe('PENDINGFORASSIGNMENT');
+    expect(data.ServiceWrappers[0].service.additionalDetail?.escalationLevel).toBe(1);
+    console.log(`${pfaComplaintId} → PENDINGFORASSIGNMENT (ESCALATE self-loop, escalationLevel=1)`);
+  });
+
+  test('12 — cleanup: assign and resolve the PFA-escalated complaint', async () => {
+    test.skip(!prerequisitesMet, 'Prerequisites not met');
+    // Assign
+    let fullService = await fetchComplaint(adminToken, adminUserInfo, pfaComplaintId);
+    let resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        service: fullService,
+        workflow: { action: 'ASSIGN', assignees: [employeeUuid], comments: 'Assigning after PFA-escalate' },
+      }),
+    });
+    let data = await assertOk(resp, 'PGR ASSIGN (pfa cleanup)');
+    expect(data.ServiceWrappers[0].service.applicationStatus).toBe('PENDINGATLME');
+
+    // Resolve
+    fullService = await fetchComplaint(adminToken, adminUserInfo, pfaComplaintId);
+    resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        service: fullService,
+        workflow: { action: 'RESOLVE', comments: 'Cleanup resolve' },
+      }),
+    });
+    data = await assertOk(resp, 'PGR RESOLVE (pfa cleanup)');
+    expect(data.ServiceWrappers[0].service.applicationStatus).toBe('RESOLVED');
+    // Escalation metadata from the PFA self-loop should have survived through ASSIGN and RESOLVE
+    expect(data.ServiceWrappers[0].service.additionalDetail?.escalationLevel).toBe(1);
+    console.log(`${pfaComplaintId} → RESOLVED (PFA ESCALATE metadata preserved end-to-end)`);
+  });
+
+  // -----------------------------------------------------------------------
+  // SLA auto-escalation via PGR scheduler (test 13)
+  //
+  // Verifies the @Scheduled scanAndEscalate() in pgr-services actually fires
+  // and walks the HRMS reportingTo chain. Requires Nairobi env vars:
+  //   PGR_ESCALATION_INTERVAL_MS=60000   (1 min ticks)
+  //   PGR_ESCALATION_DEFAULT_SLA_MS=30000 (30s SLA so complaints ripen fast)
+  // and the workflow ESCALATE action must permit role SYSTEM at tenant `ke`.
+  //
+  // Test takes ~3 min: complaint creation, ASSIGN via raw workflow API to
+  // populate workflow process_instance.assignes (PGR _update doesn't
+  // populate this for self-loops), wait for SLA to breach + scheduler tick,
+  // verify auto-escalation reached level 1.
+  // -----------------------------------------------------------------------
+  test('13 — auto-escalation: SLA breach triggers scheduler', async () => {
+    test.skip(!prerequisitesMet, 'Prerequisites not met');
+    test.setTimeout(240_000);  // up to 4 min for the SLA breach + scheduler tick
+
+    // Create a fresh complaint
+    const createResp = await fetch(`${BASE_URL}/pgr-services/v2/request/_create`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${citizenToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: citizenToken, userInfo: citizenUserInfo },
+        service: {
+          tenantId: TENANT,
+          serviceCode: SERVICE_CODE,
+          description: `E2E auto-escalation — ${new Date().toISOString()}`,
+          source: 'web',
+          address: { city: TENANT, locality: { code: LOCALITY_CODE }, geoLocation: { latitude: 0, longitude: 0 } },
+          citizen: { name: CITIZEN_NAME, mobileNumber: CITIZEN_PHONE },
+        },
+        workflow: { action: 'APPLY', verificationDocuments: [] },
+      }),
+    });
+    const createData = await assertOk(createResp, 'PGR _create (auto-escalation)');
+    const autoSrid = createData.ServiceWrappers[0].service.serviceRequestId;
+    console.log(`Auto-escalation test complaint: ${autoSrid}`);
+
+    // ASSIGN via raw workflow /process/_transition so workflow process_instance.assignes is populated
+    const assignResp = await fetch(`${BASE_URL}/egov-workflow-v2/egov-wf/process/_transition`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        ProcessInstances: [{
+          tenantId: TENANT,
+          businessService: 'PGR',
+          businessId: autoSrid,
+          moduleName: 'PGR',
+          action: 'ASSIGN',
+          comment: 'auto-escalation test setup',
+          assignes: [{ uuid: employeeUuid }],
+        }],
+      }),
+    });
+    await assertOk(assignResp, 'WF ASSIGN (raw)');
+    console.log(`${autoSrid} assigned to employee ${employeeUuid} via raw workflow API`);
+
+    // Poll for auto-escalation. With INTERVAL_MS=60000 and SLA_MS=30000,
+    // the next tick (≤60s away) should breach (after 30s) and trigger ESCALATE.
+    const deadline = Date.now() + 200_000;
+    let escalated = false;
+    let level = 0;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 15_000));
+      const histResp = await fetch(
+        `${BASE_URL}/egov-workflow-v2/egov-wf/process/_search?tenantId=${TENANT}&businessIds=${autoSrid}&history=true`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo } }),
+        },
+      );
+      const histData: any = await histResp.json();
+      const autoEscalates = (histData.ProcessInstances || [])
+        .filter((p: any) => p.action === 'ESCALATE' && (p.comment || '').startsWith('Auto-escalated'));
+      if (autoEscalates.length > 0) {
+        escalated = true;
+        level = autoEscalates.length;
+        console.log(`${autoSrid} auto-escalated (level=${level}, comment: "${autoEscalates[0].comment}")`);
+        break;
+      }
+      console.log(`  …waiting for scheduler tick (${Math.round((deadline - Date.now())/1000)}s left)`);
+    }
+
+    expect(escalated).toBe(true);
+    expect(level).toBeGreaterThanOrEqual(1);
+
+    // Verify additionalDetail.escalationLevel was incremented
+    const final = await fetchComplaint(adminToken, adminUserInfo, autoSrid);
+    expect(final.additionalDetail?.escalationLevel).toBeGreaterThanOrEqual(1);
+    console.log(`Final additionalDetail.escalationLevel=${final.additionalDetail?.escalationLevel}`);
   });
 });
