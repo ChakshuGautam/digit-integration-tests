@@ -10,12 +10,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "ra-core": "^5.4.4",
+    "ra-data-json-server": "^5.4.4",
     "react": "^19.1.0",
     "react-admin": "^5.4.4",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.1.1",
-    "ra-core": "^5.4.4",
-    "ra-data-json-server": "^5.4.4"
+    "react-router-dom": "^7.1.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.7",

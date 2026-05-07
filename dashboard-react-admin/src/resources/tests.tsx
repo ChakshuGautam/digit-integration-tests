@@ -1,10 +1,8 @@
 import {
   List,
   Datagrid,
-  TextField,
   FunctionField,
   Show,
-  SimpleShowLayout,
   TextInput,
   SelectArrayInput,
   TopToolbar,
@@ -12,8 +10,10 @@ import {
   useRecordContext,
   useGetList,
 } from 'react-admin';
-import { useMemo } from 'react';
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Suspense, lazy, useMemo } from 'react';
+import { Box, Card, CardContent, Chip, Divider, Grid, Link as MuiLink, Stack, Typography } from '@mui/material';
+
+const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 import type { CatalogTest, TestStatus } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -259,16 +259,32 @@ export const TestList = () => (
 // Show: description, video, source.
 // ---------------------------------------------------------------------------
 
-const VideoBlock = () => {
-  const r = useRecordContext<CatalogTest>();
-  if (!r?.latestRun?.videoUrl) return null;
-  return (
-    <Box mt={1.5}>
-      <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Video</Typography>
-      <video src={r.latestRun.videoUrl} controls preload="metadata" style={{ width: '100%', maxHeight: 420, background: 'black', borderRadius: 4 }} />
-    </Box>
-  );
-};
+/**
+ * The catalog stores attachment URLs relative to the dashboard root (e.g.
+ * 'runs/<id>/test-results/.../video.webm'). Browsers resolve such relative
+ * URLs against the *current page* URL, which under react-router becomes
+ * '/tests-v2/tests/<id>/show' and yields broken paths. Anchor every URL
+ * to import.meta.env.BASE_URL so relatives behave like '/tests-v2/runs/...'.
+ */
+/** Strip ANSI color/style escape sequences so terminal output renders cleanly. */
+function stripAnsi(s: string): string {
+  // Match either real ESC (0x1b) or the literal "[" wrapped form Playwright
+  // sometimes emits: e.g. '[2m...[22m', '[31m...[39m'. The capture range
+  // covers SGR codes + their bracketed pseudo-form.
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/\u001b\[[0-9;]*m/g, '').replace(/\[\d{1,3}(?:;\d{1,3})*m/g, '');
+}
+
+function rootedUrl(rel: string | null | undefined): string | undefined {
+  if (!rel) return undefined;
+  if (/^https?:\/\//i.test(rel)) return rel;
+  if (rel.startsWith('/')) return rel;
+  const base = import.meta.env.BASE_URL || '/';
+  return `${base}${rel}`.replace(/\/{2,}/g, '/');
+}
+
+// VideoBlock was inlined into the show layout's hero card; the standalone
+// component was unused after the rewrite.
 
 const DescriptionBlock = () => {
   const r = useRecordContext<CatalogTest>();
@@ -295,20 +311,68 @@ const DescriptionBlock = () => {
   );
 };
 
+/**
+ * IDE-style source viewer with Monaco (the editor used by VS Code).
+ * Lazy-loaded so the list view doesn't pay for the editor bundle.
+ * Read-only, TypeScript syntax, line numbers, code folding, vs-dark theme.
+ * The file-name strip on top mimics a tab so it reads as an IDE pane.
+ */
 const SourceBlock = () => {
   const r = useRecordContext<CatalogTest>();
   if (!r?.source) return null;
+  const lineCount = r.source.split('\n').length;
+  // Cap height so very long tests scroll inside the editor; min so short
+  // tests don't render a tiny strip.
+  const height = Math.min(640, Math.max(220, lineCount * 19 + 40));
   return (
-    <Box
-      component="pre"
-      sx={{
-        background: '#0d1117', color: '#e6edf3', p: 1.5, borderRadius: 1,
-        fontSize: 12, overflow: 'auto', maxHeight: 480,
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-      }}
-    >
-      {r.source}
-    </Box>
+    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Box sx={{
+        bgcolor: '#1f2428',
+        color: '#cdd9e5',
+        px: 1.5, py: 0.75,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid',
+        borderColor: '#30363d',
+      }}>
+        <Typography variant="caption" sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+          {r.file}:{r.line}
+        </Typography>
+        <Typography variant="caption" sx={{ color: '#7d8590' }}>
+          TypeScript · read-only
+        </Typography>
+      </Box>
+      <Suspense fallback={
+        <Box component="pre" sx={{
+          m: 0, p: 1.5, bgcolor: '#0d1117', color: '#e6edf3',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 12, height: 220, overflow: 'auto',
+        }}>{r.source}</Box>
+      }>
+        <MonacoEditor
+          height={height}
+          defaultLanguage="typescript"
+          value={r.source}
+          theme="vs-dark"
+          options={{
+            readOnly: true,
+            domReadOnly: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 12,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            lineNumbers: 'on',
+            renderLineHighlight: 'none',
+            folding: true,
+            wordWrap: 'on',
+            scrollbar: { vertical: 'auto', horizontal: 'auto' },
+            automaticLayout: true,
+            tabSize: 2,
+          }}
+        />
+      </Suspense>
+    </Card>
   );
 };
 
@@ -330,10 +394,8 @@ const TagsListShow = () => {
 };
 
 /**
- * Lists every prior run for this test (up to 5, the rolling window). For
- * each entry: status badge, duration, link to that run's standalone
- * Playwright report. The dashboard preserves run dirs on disk for the
- * window length, so each link is always live.
+ * Tabular run history. Each row: status, run-id, duration, links to the
+ * stock Playwright report + per-attachment for the latest run.
  */
 function RunHistoryBlock() {
   const r = useRecordContext<CatalogTest>();
@@ -341,73 +403,169 @@ function RunHistoryBlock() {
     return <Typography variant="body2" color="text.secondary">No prior runs recorded.</Typography>;
   }
   return (
-    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+    <Box>
       {r.history.map((h, i) => {
         const dur = h.durationMs < 1000 ? `${Math.round(h.durationMs)}ms` : `${(h.durationMs/1000).toFixed(1)}s`;
-        const reportLink = `runs/${h.runId}/playwright-report/index.html`;
-        // Latest run also has direct video/trace pointers in r.latestRun
+        const reportLink = rootedUrl(`runs/${h.runId}/playwright-report/index.html`);
         const isLatest = r.latestRun?.runId === h.runId;
         return (
-          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: 13 }}>
-            <Chip
-              size="small"
-              label={h.status}
-              color={STATUS_COLORS[h.status] ?? 'default'}
-              sx={{ minWidth: 76 }}
-            />
-            <Typography variant="caption" sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', flex: '0 0 220px' }}>
+          <Box
+            key={i}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '90px minmax(220px, 1fr) 70px auto',
+              alignItems: 'center',
+              gap: 1.5,
+              py: 0.75,
+              borderTop: i === 0 ? 'none' : '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Chip size="small" label={h.status} color={STATUS_COLORS[h.status] ?? 'default'} sx={{ width: 80 }} />
+            <Typography variant="caption" sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
               {h.runId}
+              {isLatest && <Typography component="span" variant="caption" color="primary.main" sx={{ ml: 1 }}>★ latest</Typography>}
             </Typography>
-            <Typography variant="caption" sx={{ fontVariantNumeric: 'tabular-nums', flex: '0 0 60px' }}>
+            <Typography variant="caption" sx={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
               {dur}
             </Typography>
-            <Typography variant="caption" component="a"
-              href={reportLink}
-              target="_blank"
-              rel="noopener"
-              sx={{ color: 'primary.main', textDecoration: 'underline' }}
-            >
-              Open report
-            </Typography>
-            {isLatest && r.latestRun?.videoUrl && (
-              <Typography variant="caption" component="a"
-                href={r.latestRun.videoUrl}
-                target="_blank"
-                rel="noopener"
-                sx={{ color: 'primary.main', textDecoration: 'underline' }}
-              >
-                Video
-              </Typography>
-            )}
-            {isLatest && r.latestRun?.traceUrl && (
-              <Typography variant="caption" component="a"
-                href={r.latestRun.traceUrl}
-                target="_blank"
-                rel="noopener"
-                sx={{ color: 'primary.main', textDecoration: 'underline' }}
-              >
-                Trace
-              </Typography>
-            )}
+            <Stack direction="row" spacing={1.5}>
+              <MuiLink href={reportLink} target="_blank" rel="noopener" variant="caption">Report</MuiLink>
+              {isLatest && r.latestRun?.videoUrl && (
+                <MuiLink href={rootedUrl(r.latestRun.videoUrl)} target="_blank" rel="noopener" variant="caption">Video</MuiLink>
+              )}
+              {isLatest && r.latestRun?.traceUrl && (
+                <MuiLink href={rootedUrl(r.latestRun.traceUrl)} target="_blank" rel="noopener" variant="caption">Trace</MuiLink>
+              )}
+            </Stack>
           </Box>
         );
       })}
-    </Stack>
+    </Box>
+  );
+}
+
+/**
+ * Compact section heading: small uppercase label + thin divider, used to
+ * give the show page consistent visual hierarchy across cards.
+ */
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.08em', fontWeight: 600 }}>
+        {children}
+      </Typography>
+      <Divider sx={{ mt: 0.25 }} />
+    </Box>
+  );
+}
+
+/**
+ * Hero card: title (large), describe + file:line subtitle, status pill,
+ * tag chips. This is the first thing the user sees.
+ */
+function HeaderCard() {
+  const r = useRecordContext<CatalogTest>();
+  if (!r) return null;
+  return (
+    <Card sx={{ mb: 2 }}>
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+          <Box sx={{ flex: 1, mr: 2 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, lineHeight: 1.25, mb: 0.5 }}>
+              {r.title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {r.describe}
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: 'text.secondary' }}>
+              {r.file}:{r.line}
+            </Typography>
+          </Box>
+          <StatusBadge />
+        </Stack>
+        <TagsListShow />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Full show page composed of stacked Cards: header, latest run + history
+ * (side by side on wide screens), description, source.
+ */
+function TestShowLayout() {
+  const r = useRecordContext<CatalogTest>();
+  if (!r) return null;
+  return (
+    <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1400, mx: 'auto' }}>
+      <HeaderCard />
+
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <SectionHeader>Latest run · video</SectionHeader>
+              {r.latestRun?.videoUrl ? (
+                <video
+                  src={rootedUrl(r.latestRun.videoUrl)}
+                  controls
+                  preload="metadata"
+                  style={{ width: '100%', maxHeight: 420, background: 'black', borderRadius: 4, display: 'block' }}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No video for the latest run. API tests don't drive a browser, so they only have a trace.
+                </Typography>
+              )}
+              {r.latestRun?.errorMessage && (
+                <Box sx={{
+                  mt: 1.5, p: 1.5, borderRadius: 1,
+                  bgcolor: 'error.light',
+                  color: 'error.contrastText',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 12,
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: 200,
+                  overflow: 'auto',
+                }}>
+                  {stripAnsi(r.latestRun.errorMessage)}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <SectionHeader>Run history (last 5)</SectionHeader>
+              <RunHistoryBlock />
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <SectionHeader>Description</SectionHeader>
+          <DescriptionBlock />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+          <Box sx={{ px: 2, pt: 1.5 }}>
+            <SectionHeader>Source</SectionHeader>
+          </Box>
+          <SourceBlock />
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
 
 export const TestShow = () => (
-  <Show>
-    <SimpleShowLayout>
-      <TextField source="title" />
-      <TextField source="describe" label="Describe" />
-      <FunctionField label="Location" render={(r: CatalogTest) => `${r.file}:${r.line}`} />
-      <FunctionField label="Tags" render={() => <TagsListShow />} />
-      <FunctionField label="Last status" render={() => <StatusBadge />} />
-      <FunctionField label="Run history (last 5)" render={() => <RunHistoryBlock />} />
-      <FunctionField label="Description" render={() => <DescriptionBlock />} />
-      <FunctionField label="Video" render={() => <VideoBlock />} />
-      <FunctionField label="Source" render={() => <SourceBlock />} />
-    </SimpleShowLayout>
+  <Show component="div" actions={false}>
+    <TestShowLayout />
   </Show>
 );
