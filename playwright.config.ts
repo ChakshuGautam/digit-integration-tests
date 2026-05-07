@@ -11,6 +11,11 @@ export default defineConfig({
     'tests/**/*.spec.ts',
     'tests/fixtures/auth.setup.ts',
   ],
+  // Skip git worktrees — each carries its own node_modules, which would
+  // double-load @playwright/test and crash the runner with a "Requiring
+  // @playwright/test second time" error when the testMatch glob picks up
+  // worktree spec files.
+  testIgnore: ['.worktrees/**'],
   timeout: 120_000,
   expect: { timeout: 15_000 },
   retries: 0,
