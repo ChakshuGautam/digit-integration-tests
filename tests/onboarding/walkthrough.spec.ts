@@ -256,7 +256,7 @@ test.describe('Onboarding — full walkthrough (Phases 1–3)', () => {
     await expect(page.getByText('Verify Boundary Data')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('cell', { name: BOUNDARY_ROOT }).first()).toBeVisible();
     await expect(page.getByRole('cell', { name: BOUNDARY_CHILD }).first()).toBeVisible();
-    await page.getByRole('button', { name: /Upload Boundaries|Upload to DIGIT/i }).first().click();
+    await page.getByRole('button', { name: /Upload \d+ Boundaries/i }).click();
 
     // Phase 2 complete + jump to Phase 3.
     await Promise.all([
@@ -275,7 +275,8 @@ test.describe('Onboarding — full walkthrough (Phases 1–3)', () => {
     // ComplaintType tabs.
     await expect(page.getByText(DEPT_CODE).first()).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: /Upload to DIGIT/i }).click();
+    // Phase 3's preview submit is "Create All" (not "Upload to DIGIT").
+    await page.getByRole('button', { name: /^Create All$/ }).click();
 
     // The "creating depts" + "creating complaints" loaders are transient;
     // assert on the final Phase 3 Complete banner so the test isn't flaky
