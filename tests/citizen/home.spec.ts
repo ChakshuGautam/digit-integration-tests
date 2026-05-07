@@ -14,7 +14,7 @@ import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
 test.describe('Citizen home + landing', () => {
-  test('/citizen/ redirects to /citizen/all-services', async ({ page }) => {
+  test('/citizen/ redirects to /citizen/all-services', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
@@ -28,7 +28,7 @@ test.describe('Citizen home + landing', () => {
     expect(page.url()).toContain('/citizen/all-services');
   });
 
-  test('/all-services renders CCRS title + File a Complaint + My Complaints links', async ({
+  test('/all-services renders CCRS title + File a Complaint + My Complaints links', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({
     page,
   }) => {
     test.setTimeout(60_000);
@@ -53,7 +53,7 @@ test.describe('Citizen home + landing', () => {
     }
   });
 
-  test('/pgr-home renders the PGR module home with action links', async ({ page }) => {
+  test('/pgr-home renders the PGR module home with action links', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
@@ -76,7 +76,7 @@ test.describe('Citizen home + landing', () => {
     await expect(body).toContainText('File a Complaint');
   });
 
-  test('header language pill renders the current locale', async ({ page }) => {
+  test('header language pill renders the current locale', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);

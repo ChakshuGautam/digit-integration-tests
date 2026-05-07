@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL } from '../utils/env';
 
-test('complaint details page loads without crashing for any service code', async ({ page }) => {
+test('complaint details page loads without crashing for any service code', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
   test.setTimeout(120_000);
 
   // Track JS errors

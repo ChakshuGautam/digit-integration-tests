@@ -14,7 +14,7 @@ import { BASE_URL, generateCitizenPhone } from '../utils/env';
 const CITIZEN_PHONE = generateCitizenPhone();
 
 test.describe('Citizen Login', () => {
-  test('login page renders with mobile input', async ({ page }) => {
+  test('login page renders with mobile input', { tag: ['@area:auth', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/digit-ui/citizen/login`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
@@ -25,7 +25,7 @@ test.describe('Citizen Login', () => {
     expect(await mobileInput.isVisible()).toBe(true);
   });
 
-  test('citizen can log in with OTP and reach home page', async ({ page }) => {
+  test('citizen can log in with OTP and reach home page', { tag: ['@area:auth', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     await citizenOtpLogin(page, CITIZEN_PHONE);
 
     const token = await page.evaluate(() => localStorage.getItem('Citizen.token'));

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { BASE_URL } from '../utils/env';
 
-test('MDMS ThemeConfig is fetched and applied as CSS variables', async ({ page }) => {
+test('MDMS ThemeConfig is fetched and applied as CSS variables', { tag: ['@area:configurator-manage', '@area:theme', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
   test.setTimeout(60_000);
 
   await page.goto(`${BASE_URL}/digit-ui/citizen/login`, { waitUntil: 'domcontentloaded' });

@@ -114,7 +114,7 @@ async function createHierarchyApi(
 }
 
 test.describe('manage/boundary-hierarchies', () => {
-  test('1. list renders with hierarchy type + levels columns', async ({ page }) => {
+  test('1. list renders with hierarchy type + levels columns', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
 
     const table = page.getByRole('table');
@@ -131,7 +131,7 @@ test.describe('manage/boundary-hierarchies', () => {
     expect(await dataRows.count()).toBeGreaterThan(1);
   });
 
-  test('2. UI create happy path — chain of 2 levels shows up in list + API', async ({
+  test('2. UI create happy path — chain of 2 levels shows up in list + API', { tag: ['@area:configurator-manage', '@kind:happy-path', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const hierarchyType = testCode(testInfo, 'BH_CREATE');
@@ -177,7 +177,7 @@ test.describe('manage/boundary-hierarchies', () => {
     ).toBeVisible();
   });
 
-  test('3. show page renders levels in chain order', async ({ page }, testInfo) => {
+  test('3. show page renders levels in chain order', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }, testInfo) => {
     const hierarchyType = testCode(testInfo, 'BH_SHOW');
     createdHierarchies.add(hierarchyType);
 
@@ -200,7 +200,7 @@ test.describe('manage/boundary-hierarchies', () => {
     await expect(page.getByText('LEAF', { exact: true })).toBeVisible();
   });
 
-  test('4. duplicate hierarchyType is rejected with DUPLICATE_RECORD', async ({}, testInfo) => {
+  test('4. duplicate hierarchyType is rejected with DUPLICATE_RECORD', { tag: ['@area:configurator-manage', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({}, testInfo) => {
     const hierarchyType = testCode(testInfo, 'BH_DUP');
     createdHierarchies.add(hierarchyType);
 
@@ -221,7 +221,7 @@ test.describe('manage/boundary-hierarchies', () => {
     expect(codes).toContain('DUPLICATE_RECORD');
   });
 
-  test('5. validation — empty hierarchyType blocks client-side submit', async ({
+  test('5. validation — empty hierarchyType blocks client-side submit', { tag: ['@area:configurator-manage', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(`${LIST_PATH}/create`);
@@ -237,7 +237,7 @@ test.describe('manage/boundary-hierarchies', () => {
     await expect(page).toHaveURL(/\/create$/, { timeout: 5_000 });
   });
 
-  test('6. API response shape — BoundaryHierarchy comes back as an array', async ({}, testInfo) => {
+  test('6. API response shape — BoundaryHierarchy comes back as an array', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({}, testInfo) => {
     // The client allows either a single object or a single-element array
     // on create. Pin the current contract so a future server rev doesn't
     // break silently.

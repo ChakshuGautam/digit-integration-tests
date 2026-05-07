@@ -18,7 +18,7 @@ import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
 test.describe('Citizen aux surfaces — issue #12 regression guards', () => {
-  test('FAQ page does not render the error fallback', async ({ page }) => {
+  test('FAQ page does not render the error fallback', { tag: ['@area:pgr', '@ccrs:12', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
@@ -35,7 +35,7 @@ test.describe('Citizen aux surfaces — issue #12 regression guards', () => {
     );
   });
 
-  test('How-it-works page does not render the error fallback', async ({ page }) => {
+  test('How-it-works page does not render the error fallback', { tag: ['@area:pgr', '@ccrs:12', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);
@@ -53,7 +53,7 @@ test.describe('Citizen aux surfaces — issue #12 regression guards', () => {
     ).not.toContainText('Something went wrong');
   });
 
-  test('HELPLINE sidebar item is reachable + click-actionable', async ({ page }) => {
+  test('HELPLINE sidebar item is reachable + click-actionable', { tag: ['@area:pgr', '@ccrs:12', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(60_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);

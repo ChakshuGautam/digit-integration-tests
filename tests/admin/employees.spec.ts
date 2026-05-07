@@ -131,7 +131,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/employees', () => {
-  test('1. list renders, search narrows, status filter applies', async ({ page }) => {
+  test('1. list renders, search narrows, status filter applies', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
 
     const table = page.getByRole('table');
@@ -167,7 +167,7 @@ test.describe('manage/employees', () => {
     }
   });
 
-  test('2. single create — happy path derives code + username, employee lands', async ({
+  test('2. single create — happy path derives code + username, employee lands', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:happy-path', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'EMP_CREATE');
@@ -246,7 +246,7 @@ test.describe('manage/employees', () => {
     void found;
   });
 
-  test('3. Kenya-invalid mobile 99999 shows inline error', async ({ page }) => {
+  test('3. Kenya-invalid mobile 99999 shows inline error', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${LIST_PATH}/create`);
 
     await page.getByLabel(/^Name/i).fill('PW Bad Mobile');
@@ -260,7 +260,7 @@ test.describe('manage/employees', () => {
     await expect(errorText).toBeVisible({ timeout: 10_000 });
   });
 
-  test('4. edit — DOB round-trips as YYYY-MM-DD (not epoch-ms)', async ({
+  test('4. edit — DOB round-trips as YYYY-MM-DD (not epoch-ms)', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Create one via UI then re-enter Edit.
@@ -313,7 +313,7 @@ test.describe('manage/employees', () => {
     expect((emp.user as any)?.name).toMatch(/PW Edited/);
   });
 
-  test('4a. edit — add CITIZEN role round-trips without JsonMappingException (CCRS#439)', async ({
+  test('4a. edit — add CITIZEN role round-trips without JsonMappingException (CCRS#439)', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:439', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Create a fresh employee via API so we own it + know it has only EMPLOYEE
@@ -398,7 +398,7 @@ test.describe('manage/employees', () => {
     // on long-lived employees without nuking the whole record.
   });
 
-  test('5. deactivate — INACTIVE + deactivation reason applied', async ({
+  test('5. deactivate — INACTIVE + deactivation reason applied', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'EMP_DEACT');
@@ -475,7 +475,7 @@ test.describe('manage/employees', () => {
     expect((emp.deactivationDetails as unknown[]).length).toBeGreaterThan(0);
   });
 
-  test('6. reset password — collapsed by default, expand rotates token', async ({
+  test('6. reset password — collapsed by default, expand rotates token', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'EMP_PWD');
@@ -525,7 +525,7 @@ test.describe('manage/employees', () => {
     await expect(page.getByRole('button', { name: /^Keep existing$/i })).toBeVisible();
   });
 
-  test('7. bulk import — 3 valid + 2 invalid rows, create 3 lands', async ({
+  test('7. bulk import — 3 valid + 2 invalid rows, create 3 lands', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const validCodes = [1, 2, 3].map((i) => testCodeIndexed(testInfo, 'EMP_BULK_OK', i));

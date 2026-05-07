@@ -10,7 +10,7 @@ import { getDigitToken, loginViaApi } from '../utils/auth';
 import { BASE_URL, TENANT, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../utils/env';
 
 test.describe('Employee Login — API', () => {
-  test('valid credentials return access token', async () => {
+  test('valid credentials return access token', { tag: ['@area:auth', '@kind:regression', '@layer:api', '@persona:employee'] }, async () => {
     const tokenResponse = await getDigitToken({
       tenant: ROOT_TENANT,
       username: ADMIN_USER,
@@ -19,7 +19,7 @@ test.describe('Employee Login — API', () => {
     expect(tokenResponse.access_token).toBeTruthy();
   });
 
-  test('bad credentials are rejected', async () => {
+  test('bad credentials are rejected', { tag: ['@area:auth', '@kind:edge-case', '@layer:api', '@persona:employee'] }, async () => {
     await expect(
       getDigitToken({
         tenant: ROOT_TENANT,
@@ -31,7 +31,7 @@ test.describe('Employee Login — API', () => {
 });
 
 test.describe('Employee Login — UI', () => {
-  test('API session injection loads employee home', async ({ page }) => {
+  test('API session injection loads employee home', { tag: ['@area:auth', '@kind:regression', '@layer:api', '@persona:employee'] }, async ({ page }) => {
     await loginViaApi(page, {
       tenant: TENANT,
       username: ADMIN_USER,

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
-test('citizen logout redirects to login page', async ({ page }) => {
+test('citizen logout redirects to login page', { tag: ['@area:auth', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
   test.setTimeout(90_000);
   const phone = generateCitizenPhone();
   await citizenOtpLogin(page, phone);

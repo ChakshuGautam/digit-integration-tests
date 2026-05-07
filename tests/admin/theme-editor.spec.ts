@@ -19,7 +19,7 @@ import { BASE_URL, ROOT_TENANT, ADMIN_USER, ADMIN_PASS } from '../utils/env';
 
 const THEME_RECORD_ID = 'kenya-green';
 
-test('API smoke — ThemeConfig record exists on the expected tenant', async () => {
+test('API smoke — ThemeConfig record exists on the expected tenant', { tag: ['@area:configurator-manage', '@area:theme', '@kind:smoke', '@layer:ui', '@persona:admin'] }, async () => {
   const t = await getDigitToken({ tenant: ROOT_TENANT, username: ADMIN_USER, password: ADMIN_PASS });
   const resp = await fetch(`${BASE_URL}/mdms-v2/v2/_search`, {
     method: 'POST',
@@ -40,7 +40,7 @@ test('API smoke — ThemeConfig record exists on the expected tenant', async () 
   expect(body.mdms?.[0].data?.colors, 'record should carry a colors tree').toBeTruthy();
 });
 
-test('edit page renders the flagship editor (tabs + preview)', async ({ page }) => {
+test('edit page renders the flagship editor (tabs + preview)', { tag: ['@area:configurator-manage', '@area:theme', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
   test.setTimeout(90_000);
 
   // storageState from auth.setup already has the session in localStorage;
@@ -62,7 +62,7 @@ test('edit page renders the flagship editor (tabs + preview)', async ({ page }) 
   await expect(preview, 'live preview should render').toBeVisible({ timeout: 10_000 });
 });
 
-test('editing primary.main updates the preview live', async ({ page }) => {
+test('editing primary.main updates the preview live', { tag: ['@area:configurator-manage', '@area:theme', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
   test.setTimeout(90_000);
 
   await page.goto(`/configurator/manage/theme-config/${THEME_RECORD_ID}/edit`, {

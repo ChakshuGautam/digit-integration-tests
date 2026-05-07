@@ -172,7 +172,7 @@ test.describe.serial('PGR escalation — API only', () => {
   /** Set to true when prerequisites (workflow + hierarchy) are confirmed. */
   let prerequisitesMet = false;
 
-  test('1 — acquire admin and citizen tokens', async () => {
+  test('1 — acquire admin and citizen tokens', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const adminResp = await getDigitToken({
       tenant: ROOT_TENANT,
       username: ADMIN_USER,
@@ -189,7 +189,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`Admin and citizen (${CITIZEN_PHONE}) tokens acquired`);
   });
 
-  test('2 — ensure PGR workflow config is correct (ESCALATE, role grants, nextState fix)', async () => {
+  test('2 — ensure PGR workflow config is correct (ESCALATE, role grants, nextState fix)', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const biz = await fetchPgrWorkflow(adminToken);
     expect(biz).toBeTruthy();
 
@@ -293,7 +293,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log('PGR workflow config verified after update');
   });
 
-  test('3 — ensure 2-level employee hierarchy (reportingTo) in HRMS', async () => {
+  test('3 — ensure 2-level employee hierarchy (reportingTo) in HRMS', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     allEmployees = await searchEmployees(adminToken, TENANT);
     expect(allEmployees.length).toBeGreaterThan(0);
     console.log(`Found ${allEmployees.length} employees in ${TENANT}`);
@@ -357,7 +357,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`2-level hierarchy ready: ${subordinate.user?.name} → ${supervisor.user?.name} → ${superSupervisor.user?.name}`);
   });
 
-  test('4 — citizen creates complaint', async () => {
+  test('4 — citizen creates complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met (workflow or HRMS hierarchy missing)');
 
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_create`, {
@@ -387,7 +387,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`Complaint created: ${serviceRequestId} → PENDINGFORASSIGNMENT`);
   });
 
-  test('5 — admin assigns complaint to specific employee', async () => {
+  test('5 — admin assigns complaint to specific employee', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
 
@@ -410,7 +410,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`${serviceRequestId} → PENDINGATLME (assigned to ${employeeUuid})`);
   });
 
-  test('6 — manual ESCALATE level 0→1', async () => {
+  test('6 — manual ESCALATE level 0→1', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
 
@@ -449,7 +449,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`${serviceRequestId} → ESCALATED to ${supervisorUuid} (level 1)`);
   });
 
-  test('7 — verify escalation: workflow action + PGR assignee', async () => {
+  test('7 — verify escalation: workflow action + PGR assignee', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
 
     // Verify workflow history records the ESCALATE action
@@ -489,7 +489,7 @@ test.describe.serial('PGR escalation — API only', () => {
     }
   });
 
-  test('8 — second ESCALATE level 1→2 (skip if no second-level supervisor)', async () => {
+  test('8 — second ESCALATE level 1→2 (skip if no second-level supervisor)', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
 
     // Look up the supervisor's reportingTo
@@ -543,7 +543,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`${serviceRequestId} → ESCALATED to ${secondSupervisorUuid} (level 2, escalationLevel=${updatedDetail.escalationLevel})`);
   });
 
-  test('9 — resolve the escalated complaint', async () => {
+  test('9 — resolve the escalated complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
 
@@ -584,7 +584,7 @@ test.describe.serial('PGR escalation — API only', () => {
   // -----------------------------------------------------------------------
   let pfaComplaintId: string;
 
-  test('10 — citizen creates complaint for PENDINGFORASSIGNMENT escalation', async () => {
+  test('10 — citizen creates complaint for PENDINGFORASSIGNMENT escalation', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_create`, {
       method: 'POST',
@@ -608,7 +608,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`Third complaint created: ${pfaComplaintId} → PENDINGFORASSIGNMENT`);
   });
 
-  test('11 — ESCALATE from PENDINGFORASSIGNMENT (self-loop, pre-assignment)', async () => {
+  test('11 — ESCALATE from PENDINGFORASSIGNMENT (self-loop, pre-assignment)', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     const fullService = await fetchComplaint(adminToken, adminUserInfo, pfaComplaintId);
     const existingDetail = fullService.additionalDetail || {};
@@ -640,7 +640,7 @@ test.describe.serial('PGR escalation — API only', () => {
     console.log(`${pfaComplaintId} → PENDINGFORASSIGNMENT (ESCALATE self-loop, escalationLevel=1)`);
   });
 
-  test('12 — cleanup: assign and resolve the PFA-escalated complaint', async () => {
+  test('12 — cleanup: assign and resolve the PFA-escalated complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     // Assign
     let fullService = await fetchComplaint(adminToken, adminUserInfo, pfaComplaintId);
@@ -688,7 +688,7 @@ test.describe.serial('PGR escalation — API only', () => {
   // populate this for self-loops), wait for SLA to breach + scheduler tick,
   // verify auto-escalation reached level 1.
   // -----------------------------------------------------------------------
-  test('13 — auto-escalation: SLA breach triggers scheduler', async () => {
+  test('13 — auto-escalation: SLA breach triggers scheduler', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.skip(!prerequisitesMet, 'Prerequisites not met');
     test.setTimeout(240_000);  // up to 4 min for the SLA breach + scheduler tick
 

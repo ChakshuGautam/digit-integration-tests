@@ -47,7 +47,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/departments', () => {
-  test('1. list renders with header columns and filter narrows results', async ({
+  test('1. list renders with header columns and filter narrows results', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
@@ -97,7 +97,7 @@ test.describe('manage/departments', () => {
     }
   });
 
-  test('2. single create → edit → deactivate round-trip', async ({ page }, testInfo) => {
+  test('2. single create → edit → deactivate round-trip', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }, testInfo) => {
     const code = testCode(testInfo, 'DEPT_RT');
     const name = `PW Roundtrip ${code}`;
     createdCodes.add(code);
@@ -162,7 +162,7 @@ test.describe('manage/departments', () => {
     }
   });
 
-  test('3. bulk import — happy path creates 5 rows', async ({ page }, testInfo) => {
+  test('3. bulk import — happy path creates 5 rows', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:happy-path', '@layer:ui', '@persona:admin'] }, async ({ page }, testInfo) => {
     const codes = Array.from({ length: 5 }, (_, i) =>
       testCodeIndexed(testInfo, 'DEPT_BULK', i + 1),
     );
@@ -213,7 +213,7 @@ test.describe('manage/departments', () => {
     for (const r of records) expect(r.isActive).not.toBe(false);
   });
 
-  test('4. bulk import — duplicate code rejected client-side', async ({
+  test('4. bulk import — duplicate code rejected client-side', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // First, seed an existing record via the API so we know its code is
@@ -259,7 +259,7 @@ test.describe('manage/departments', () => {
     ).toBeVisible();
   });
 
-  test('5a. Show page renders "Related" reverse references (complaint-types + employees)', async ({
+  test('5a. Show page renders "Related" reverse references (complaint-types + employees)', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     // Seeded `ke` tenant has DEPT_7 with employees + complaint-types
@@ -282,7 +282,7 @@ test.describe('manage/departments', () => {
     await expect(page.getByText(/^Employees$/i).first()).toBeVisible();
   });
 
-  test('5b. deactivation guard probes designation + employee APIs', async ({
+  test('5b. deactivation guard probes designation + employee APIs', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Seed a department with a designation linked to it, so the guard's
@@ -330,7 +330,7 @@ test.describe('manage/departments', () => {
     expect(Array.isArray(employees)).toBe(true);
   });
 
-  test('5c. API update round-trip preserves auditDetails on a department', async ({}, testInfo) => {
+  test('5c. API update round-trip preserves auditDetails on a department', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({}, testInfo) => {
     const auth = loadAuth();
     const code = testCode(testInfo, 'DEPT_AUDIT');
     createdCodes.add(code);
@@ -364,7 +364,7 @@ test.describe('manage/departments', () => {
     }
   });
 
-  test('6. bulk export round-trip — downloaded xlsx parses', async ({
+  test('6. bulk export round-trip — downloaded xlsx parses', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);

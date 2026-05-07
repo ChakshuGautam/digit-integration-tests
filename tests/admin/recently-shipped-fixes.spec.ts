@@ -55,7 +55,7 @@ function adminRequestInfo(token: string) {
 }
 
 test.describe('CCRS#413 — HRMS empty default search', () => {
-  test('API: active=true & isActive=true returns the tenant employee list', async () => {
+  test('API: active=true & isActive=true returns the tenant employee list', { tag: ['@area:configurator-manage', '@ccrs:413', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // The empty-filter case is environment-dependent — when the
     // RequestInfo carries a SUPERUSER role the backend short-circuits
     // and returns everything anyway, but the UI's RequestInfo (built
@@ -77,7 +77,7 @@ test.describe('CCRS#413 — HRMS empty default search', () => {
 });
 
 test.describe('CCRS#432 — PGR inbox defaults', () => {
-  test('API: workflow business service exposes the 11 PGR states (drives statusMap)', async () => {
+  test('API: workflow business service exposes the 11 PGR states (drives statusMap)', { tag: ['@area:configurator-manage', '@ccrs:432', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const token = await adminToken();
     const r = await fetch(
       `${WF_BS_SEARCH}?tenantId=${ROOT_TENANT}&businessServices=PGR`,
@@ -105,7 +105,7 @@ test.describe('CCRS#432 — PGR inbox defaults', () => {
     }
   });
 
-  test('API: pgr-services rejects non-applicationStatus sortBy values', async () => {
+  test('API: pgr-services rejects non-applicationStatus sortBy values', { tag: ['@area:configurator-manage', '@ccrs:432', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // Documents the platform constraint behind the SLA-sort-icon removal.
     // If pgr-services later adds `serviceSla` to the SortBy enum, this
     // test flips and we can re-enable the sort icon in the UI config.
@@ -124,7 +124,7 @@ test.describe('CCRS#432 — PGR inbox defaults', () => {
     expect(errs[0]?.code ?? '').toContain('typeMismatch');
   });
 
-  test('Bundle: open-states constant is present in the served JS', async () => {
+  test('Bundle: open-states constant is present in the served JS', { tag: ['@area:configurator-manage', '@ccrs:432', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     test.setTimeout(180_000);
     // The default open-states list landed in
     // `products/pgr/src/configs/UICustomizations.js` as `OPEN_STATES`.
@@ -140,7 +140,7 @@ test.describe('CCRS#432 — PGR inbox defaults', () => {
 });
 
 test.describe('CCRS#430 — action labels are localized', () => {
-  test('API: rainmaker-pgr en_IN has sentence-cased labels for ESCALATE/ASSIGN/etc', async () => {
+  test('API: rainmaker-pgr en_IN has sentence-cased labels for ESCALATE/ASSIGN/etc', { tag: ['@area:configurator-manage', '@ccrs:430', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const codes = ['ESCALATE', 'ASSIGN', 'REJECT', 'RESOLVE', 'REOPEN'];
     const r = await fetch(
       `${LOC_SEARCH}?codes=${codes.join(',')}&tenantId=${ROOT_TENANT}&locale=en_IN`,
@@ -161,7 +161,7 @@ test.describe('CCRS#430 — action labels are localized', () => {
     }
   });
 
-  test('API: ES_COMMON_TAKE_ACTION resolves to "Take Action"', async () => {
+  test('API: ES_COMMON_TAKE_ACTION resolves to "Take Action"', { tag: ['@area:configurator-manage', '@ccrs:430', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const r = await fetch(
       `${LOC_SEARCH}?codes=ES_COMMON_TAKE_ACTION&tenantId=${ROOT_TENANT}&locale=en_IN`,
       {
@@ -179,7 +179,7 @@ test.describe('CCRS#430 — action labels are localized', () => {
 });
 
 test.describe('CCRS#42 — Complaint Type menuPathName labels', () => {
-  test('API: 19 SERVICEDEFS.<menuPath> rows exist in en_IN AND sw_KE', async () => {
+  test('API: 19 SERVICEDEFS.<menuPath> rows exist in en_IN AND sw_KE', { tag: ['@area:configurator-manage', '@ccrs:42', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const codes = [
       'SERVICEDEFS.ADMINISTRATION',
       'SERVICEDEFS.WATERRELATED',
@@ -208,7 +208,7 @@ test.describe('CCRS#42 — Complaint Type menuPathName labels', () => {
 });
 
 test.describe('CCRS#44 — locale region-append regression', () => {
-  test('API: rainmaker-common sw_KE search returns rows (not the broken sw_KEIN)', async () => {
+  test('API: rainmaker-common sw_KE search returns rows (not the broken sw_KEIN)', { tag: ['@area:configurator-manage', '@ccrs:44', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const r = await fetch(
       `${LOC_SEARCH}?module=rainmaker-common&locale=sw_KE&tenantId=${ROOT_TENANT}`,
       {
@@ -224,7 +224,7 @@ test.describe('CCRS#44 — locale region-append regression', () => {
     expect(messages.length).toBeGreaterThan(100);
   });
 
-  test('API: rainmaker-common sw_KEIN (the buggy mangle) is empty — proves the dataset itself is clean', async () => {
+  test('API: rainmaker-common sw_KEIN (the buggy mangle) is empty — proves the dataset itself is clean', { tag: ['@area:configurator-manage', '@ccrs:44', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const r = await fetch(
       `${LOC_SEARCH}?module=rainmaker-common&locale=sw_KEIN&tenantId=${ROOT_TENANT}`,
       {
@@ -239,7 +239,7 @@ test.describe('CCRS#44 — locale region-append regression', () => {
 });
 
 test.describe('CCRS#417 — Undo toast removed from configurator', () => {
-  test('UI: no UndoToast container is mounted after navigating into the configurator', async ({
+  test('UI: no UndoToast container is mounted after navigating into the configurator', { tag: ['@area:configurator-manage', '@ccrs:417', '@kind:regression', '@layer:api', '@persona:admin'] }, async ({
     browser,
   }) => {
     // Use a fresh context and exercise the regular login form so we

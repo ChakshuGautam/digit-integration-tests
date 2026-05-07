@@ -20,7 +20,7 @@ test.describe('hardcoding smoke', () => {
   // authed session that auth.setup.ts wrote — they share the chromium
   // project's storageState by default.
 
-  test('1. login tenant placeholder uses configured tenant, not "pg"', async ({
+  test('1. login tenant placeholder uses configured tenant, not "pg"', { tag: ['@area:configurator-manage', '@kind:smoke', '@layer:ui', '@persona:admin'] }, async ({
     browser,
   }) => {
     // Fresh context with no storageState so we hit the login form.
@@ -42,7 +42,7 @@ test.describe('hardcoding smoke', () => {
     }
   });
 
-  test('2. employee create payload contains no literal "pg"', async ({
+  test('2. employee create payload contains no literal "pg"', { tag: ['@area:configurator-manage', '@kind:smoke', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const offending: Array<{ url: string; body: string }> = [];
@@ -77,7 +77,7 @@ test.describe('hardcoding smoke', () => {
     ).toEqual([]);
   });
 
-  test('3. complaint create payload contains no literal "pg"', async ({
+  test('3. complaint create payload contains no literal "pg"', { tag: ['@area:configurator-manage', '@kind:smoke', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const offending: Array<{ url: string; body: string }> = [];
@@ -101,7 +101,7 @@ test.describe('hardcoding smoke', () => {
     ).toEqual([]);
   });
 
-  test('4. localization endpoint never uses tenantId=pg', async ({ page }) => {
+  test('4. localization endpoint never uses tenantId=pg', { tag: ['@area:configurator-manage', '@kind:smoke', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     const offending: string[] = [];
 
     page.on('request', (req: Request) => {

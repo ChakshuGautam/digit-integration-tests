@@ -42,7 +42,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/localization', () => {
-  test('1. tenant parity — both ke and ke.nairobi return the same rainmaker-common en_IN count', async () => {
+  test('1. tenant parity — both ke and ke.nairobi return the same rainmaker-common en_IN count', { tag: ['@area:configurator-manage', '@area:localization', '@kind:regression', '@layer:ui', '@persona:admin'] }, async () => {
     const auth = loadAuth();
     const [keRows, cityRows] = await Promise.all([
       locSearch(auth, TENANT_CODE, 'en_IN', 'rainmaker-common'),
@@ -53,7 +53,7 @@ test.describe('manage/localization', () => {
     expect(Math.abs(keRows.length - cityRows.length)).toBeLessThanOrEqual(2);
   });
 
-  test('2. upsert + cache-bust round-trip — value lands after bust, not before', async ({}, testInfo) => {
+  test('2. upsert + cache-bust round-trip — value lands after bust, not before', { tag: ['@area:configurator-manage', '@area:localization', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({}, testInfo) => {
     const auth = loadAuth();
     const code = testCode(testInfo, 'LOC_RT');
     const locale = 'en_IN';
@@ -87,7 +87,7 @@ test.describe('manage/localization', () => {
     expect(updated?.message).toBe('second-version');
   });
 
-  test('3. _upsert rejects same code on different modules in one batch (DUPLICATE_RECORDS)', async ({}, testInfo) => {
+  test('3. _upsert rejects same code on different modules in one batch (DUPLICATE_RECORDS)', { tag: ['@area:configurator-manage', '@area:localization', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({}, testInfo) => {
     const auth = loadAuth();
     const code = testCode(testInfo, 'LOC_DUP');
     const locale = 'en_IN';
@@ -121,7 +121,7 @@ test.describe('manage/localization', () => {
     expect(errs[0].code).toBe('DUPLICATE_RECORDS');
   });
 
-  test('4. list renders with a usable layout and shows data', async ({ page }) => {
+  test('4. list renders with a usable layout and shows data', { tag: ['@area:configurator-manage', '@area:localization', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
     // Cold load is ~7.3s; extend visibility timeout so we don't flake.
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -144,7 +144,7 @@ test.describe('manage/localization', () => {
     }
   });
 
-  test('5. inline edit — UI save round-trips via localizationUpsert + cache-bust', async ({
+  test('5. inline edit — UI save round-trips via localizationUpsert + cache-bust', { tag: ['@area:configurator-manage', '@area:localization', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Seed a PW_ row via the API so the test has something deterministic
@@ -217,7 +217,7 @@ test.describe('manage/localization', () => {
     expect(updated?.message).toBe('edited-english');
   });
 
-  test('6. missing sw_KE translation renders em-dash placeholder', async ({ page }, testInfo) => {
+  test('6. missing sw_KE translation renders em-dash placeholder', { tag: ['@area:configurator-manage', '@area:localization', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({ page }, testInfo) => {
     // Seed an en_IN row but NO sw_KE counterpart. The pivoted view should
     // display an em-dash (—) for the missing swahili cell.
     const auth = loadAuth();
@@ -251,7 +251,7 @@ test.describe('manage/localization', () => {
     expect(rowText).toMatch(/[—–]|---/);
   });
 
-  test('7. module filter narrows rows', async ({ page }) => {
+  test('7. module filter narrows rows', { tag: ['@area:configurator-manage', '@area:localization', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
     await page.waitForLoadState('networkidle').catch(() => {});
 

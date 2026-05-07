@@ -17,7 +17,7 @@ import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
 test.describe('citizen PGR regression — shipped fixes', () => {
-  test('#421 — landing ServicesSection top padding matches side padding', async ({ page }) => {
+  test('#421 — landing ServicesSection top padding matches side padding', { tag: ['@area:pgr', '@ccrs:421', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     // The CSS override lives in /digit-ui/vendor/overrides.css and is
     // loaded by public/index.html after the vendor digit-ui-css bundle.
     // If either the file stops being served or the <link> is reordered
@@ -41,7 +41,7 @@ test.describe('citizen PGR regression — shipped fixes', () => {
     expect(padding.right).toBe('15px');
   });
 
-  test('#422 — navigating into Create New Complaint lands at top of page', async ({ page }) => {
+  test('#422 — navigating into Create New Complaint lands at top of page', { tag: ['@area:pgr', '@ccrs:422', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     await citizenOtpLogin(page, generateCitizenPhone());
 
     // Scroll the home page down so we can observe the reset on navigation.
@@ -68,8 +68,7 @@ test.describe('citizen PGR regression — shipped fixes', () => {
   });
 
   test.fixme(
-    '#441 — submit rating without "What was good?" boxes does not crash',
-    async ({ page }) => {
+    '#441 — submit rating without "What was good?" boxes does not crash', { tag: ['@area:pgr', '@ccrs:441', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
       // TODO: needs a complaint in RESOLVED state belonging to a citizen
       // we control. Either chain off pgr-lifecycle-ui.spec.ts (which
       // already resolves one) or bootstrap via the PGR API before the

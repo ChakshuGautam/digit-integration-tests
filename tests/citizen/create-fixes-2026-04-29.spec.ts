@@ -15,7 +15,7 @@ import { loginEmployee } from '../utils/launch-fixes/api.js';
 const BASE = process.env.NAIPEPEA_BASE ?? 'https://naipepea.digit.org';
 
 test.describe('03-citizen-create: PGR _create payload completeness (#478 + #72)', () => {
-  test('digit-ui bundle declares AddressOne + AddressTwo populators (PR-C re-enabled)', async () => {
+  test('digit-ui bundle declares AddressOne + AddressTwo populators (PR-C re-enabled)', { tag: ['@area:pgr', '@ccrs:478', '@ccrs:72', '@kind:regression', '@layer:api', '@persona:citizen'] }, async () => {
     // Pre-PR-C the populators were commented out in the JSX config —
     // the bundle had no string `AddressOne` / `AddressTwo` anywhere.
     // Post-PR-C they're back. Fetch the bundle directly (faster + more
@@ -29,7 +29,7 @@ test.describe('03-citizen-create: PGR _create payload completeness (#478 + #72)'
 });
 
 test.describe('03-citizen-create: pincode validation (#478)', () => {
-  test('Kenya 5-digit Nairobi GPO postal code (00100) is now a valid pattern', () => {
+  test('Kenya 5-digit Nairobi GPO postal code (00100) is now a valid pattern', { tag: ['@area:pgr', '@ccrs:478', '@kind:regression', '@layer:api', '@persona:citizen'] }, () => {
     const PATTERN = /^[0-9]{5}$/; // post-fix
     expect(PATTERN.test('00100')).toBe(true);
     expect(PATTERN.test('1234')).toBe(false);
@@ -37,7 +37,7 @@ test.describe('03-citizen-create: pincode validation (#478)', () => {
     expect(PATTERN.test('abcde')).toBe(false);
   });
 
-  test('the legacy Indian pattern would have rejected Nairobi GPO', () => {
+  test('the legacy Indian pattern would have rejected Nairobi GPO', { tag: ['@area:pgr', '@ccrs:478', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:citizen'] }, () => {
     const LEGACY = /^[1-9][0-9]{5}$/i;
     expect(LEGACY.test('00100')).toBe(false);
   });

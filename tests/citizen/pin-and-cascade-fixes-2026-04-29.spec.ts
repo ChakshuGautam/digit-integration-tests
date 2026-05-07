@@ -23,7 +23,7 @@ const PHONE = generateCitizenPhone();
 test.describe('06-citizen-pin-and-cascade — PR #74 regression', () => {
   test.slow();
 
-  test('pin step + locality cascade no longer trap the citizen', async ({ page }) => {
+  test('pin step + locality cascade no longer trap the citizen', { tag: ['@area:pgr', '@ccrs:74', '@kind:regression', '@layer:ui', '@persona:citizen', '@pr:74'] }, async ({ page }) => {
     test.setTimeout(180_000);
 
     // We watch for *uncaught* JS errors only. The bundle produces a long

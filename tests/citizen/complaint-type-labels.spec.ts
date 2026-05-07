@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
-test('complaint type dropdown shows human-readable translated names', async ({ page }) => {
+test('complaint type dropdown shows human-readable translated names', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
   test.setTimeout(90_000);
   const phone = generateCitizenPhone();
   await citizenOtpLogin(page, phone);

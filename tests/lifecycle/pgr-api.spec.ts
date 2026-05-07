@@ -107,7 +107,7 @@ test.describe.serial('PGR lifecycle — API only', () => {
   let citizenUserInfo: Record<string, unknown>;
   let serviceRequestId: string;
 
-  test('1 — acquire admin and citizen tokens', async () => {
+  test('1 — acquire admin and citizen tokens', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const adminResp = await getDigitToken({
       tenant: ROOT_TENANT,
       username: ADMIN_USER,
@@ -124,7 +124,7 @@ test.describe.serial('PGR lifecycle — API only', () => {
     console.log(`Admin and citizen (${CITIZEN_PHONE}) tokens acquired`);
   });
 
-  test('2 — citizen creates complaint', async () => {
+  test('2 — citizen creates complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_create`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${citizenToken}`, 'Content-Type': 'application/json' },
@@ -153,7 +153,7 @@ test.describe.serial('PGR lifecycle — API only', () => {
     console.log(`Complaint created: ${serviceRequestId} → PENDINGFORASSIGNMENT`);
   });
 
-  test('3 — admin assigns complaint', async () => {
+  test('3 — admin assigns complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
 
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
@@ -172,7 +172,7 @@ test.describe.serial('PGR lifecycle — API only', () => {
     console.log(`${serviceRequestId} → PENDINGATLME`);
   });
 
-  test('4 — admin resolves complaint', async () => {
+  test('4 — admin resolves complaint', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
 
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
@@ -191,7 +191,7 @@ test.describe.serial('PGR lifecycle — API only', () => {
     console.log(`${serviceRequestId} → RESOLVED`);
   });
 
-  test('5 — citizen verifies complaint is resolved', async () => {
+  test('5 — citizen verifies complaint is resolved', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const service = await fetchComplaint(citizenToken, citizenUserInfo, serviceRequestId);
     expect(service.applicationStatus).toBe('RESOLVED');
     console.log(`Citizen confirms ${serviceRequestId} is RESOLVED`);

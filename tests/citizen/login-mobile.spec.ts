@@ -27,7 +27,7 @@ import { BASE_URL } from '../utils/env';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('citizen login mobile validation — #429', () => {
-  test('5-digit number shows inline error + helper hint', async ({ page }) => {
+  test('5-digit number shows inline error + helper hint', { tag: ['@area:auth', '@ccrs:429', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/digit-ui/citizen/login`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,

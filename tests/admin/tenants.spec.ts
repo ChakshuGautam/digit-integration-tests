@@ -54,7 +54,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/tenants', () => {
-  test('1. list renders expected columns and at least one row', async ({ page }) => {
+  test('1. list renders expected columns and at least one row', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
 
     const table = page.getByRole('table');
@@ -73,7 +73,7 @@ test.describe('manage/tenants', () => {
     expect(rowCount).toBeGreaterThan(1); // header + >=1 tenant
   });
 
-  test('2. search filter narrows to a known tenant code', async ({ page }) => {
+  test('2. search filter narrows to a known tenant code', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
 
     const search = page.getByPlaceholder(/search/i).first();
@@ -93,7 +93,7 @@ test.describe('manage/tenants', () => {
     expect(await rows.count()).toBe(0);
   });
 
-  test('3. show page renders Code / Name / City / District for a known tenant', async ({
+  test('3. show page renders Code / Name / City / District for a known tenant', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     // Pick a tenant that has a fleshed-out `city` block (ke.nakuru is
@@ -121,7 +121,7 @@ test.describe('manage/tenants', () => {
     await expect(page.getByText(code, { exact: false }).first()).toBeVisible();
   });
 
-  test('4. API shape — search returns records with code / name / city', async () => {
+  test('4. API shape — search returns records with code / name / city', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async () => {
     const auth = loadAuth();
     const records = await mdmsSearch(auth, TENANT_CODE, SCHEMA, { limit: 50 });
     expect(records.length).toBeGreaterThan(0);
@@ -136,7 +136,7 @@ test.describe('manage/tenants', () => {
     }
   });
 
-  test('5. QUIRK — ke.nairobi city object lacks districtName, list tolerates it', async ({
+  test('5. QUIRK — ke.nairobi city object lacks districtName, list tolerates it', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const auth = loadAuth();
@@ -171,7 +171,7 @@ test.describe('manage/tenants', () => {
     }
   });
 
-  test('6. create via API — new tenant row shows up in the UI list', async ({
+  test('6. create via API — new tenant row shows up in the UI list', { tag: ['@area:configurator-manage', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const auth = loadAuth();

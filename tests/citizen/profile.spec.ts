@@ -43,7 +43,7 @@ const FORBIDDEN_INPUT_NAMES = [
 ];
 
 test.describe('Citizen profile field-set lock-down', () => {
-  test('only Name + Gender + Email + photo render (no password/language/mobile/notifications)', async ({
+  test('only Name + Gender + Email + photo render (no password/language/mobile/notifications)', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({
     page,
   }) => {
     test.setTimeout(120_000);

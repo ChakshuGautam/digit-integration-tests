@@ -16,13 +16,17 @@ export default defineConfig({
   retries: 0,
   // Manage specs mutate tenant state; serial keeps cleanup deterministic.
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'report.json' }],
+  ],
   use: {
     baseURL: BASE_URL,
     headless: true,
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
+    screenshot: 'on',
+    trace: 'on',
+    video: 'on',
   },
   projects: [
     {

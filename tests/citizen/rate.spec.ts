@@ -174,7 +174,7 @@ test.describe('Citizen rate-complaint UI', () => {
     console.log(`Seeded ${serviceRequestId} → RESOLVED for ${CITIZEN_PHONE}`);
   });
 
-  test('rate page renders 5 stars + 4 feedback checkboxes + Comments textarea', async ({ page }) => {
+  test('rate page renders 5 stars + 4 feedback checkboxes + Comments textarea', { tag: ['@area:pgr', '@kind:regression', '@layer:api', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     await citizenOtpLogin(page, CITIZEN_PHONE);
     await page.goto(`${BASE_URL}/digit-ui/citizen/pgr/rate/${serviceRequestId}`, {

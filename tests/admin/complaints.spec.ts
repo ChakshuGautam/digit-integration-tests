@@ -92,7 +92,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/complaints', () => {
-  test('1. file complaint — citizen, locality, required landmark', async ({
+  test('1. file complaint — citizen, locality, required landmark', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     if (!liveServiceCode) test.skip(true, 'No active complaint type seeded on tenant');
@@ -145,7 +145,7 @@ test.describe('manage/complaints', () => {
     if (match) createdComplaints.add(match[1]);
   });
 
-  test('2. edit merges description + workflow ASSIGN in one round-trip', async ({
+  test('2. edit merges description + workflow ASSIGN in one round-trip', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     if (!lmeAssigneeUuid) {
@@ -189,7 +189,7 @@ test.describe('manage/complaints', () => {
     expect(svc.applicationStatus).toBe('PENDINGATLME');
   });
 
-  test('3. workflow dropdown labels are human-readable, not UUIDs', async ({
+  test('3. workflow dropdown labels are human-readable, not UUIDs', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const target = await pickWorkableComplaint(loadAuth());
@@ -212,7 +212,7 @@ test.describe('manage/complaints', () => {
     }
   });
 
-  test('4. source select offers only Web/Mobile/WhatsApp', async ({ page }) => {
+  test('4. source select offers only Web/Mobile/WhatsApp', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     const target = await pickWorkableComplaint(loadAuth());
     if (!target) test.skip(true, 'No workable complaint to inspect');
 
@@ -231,7 +231,7 @@ test.describe('manage/complaints', () => {
     }
   });
 
-  test('5. list footer count matches /pgr-services/v2/request/_count', async ({
+  test('5. list footer count matches /pgr-services/v2/request/_count', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
@@ -259,7 +259,7 @@ test.describe('manage/complaints', () => {
     expect(uiCount).toBe(apiCount);
   });
 
-  test('6. status + date filters fire as XHR query params', async ({ page }) => {
+  test('6. status + date filters fire as XHR query params', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
     await page.waitForLoadState('networkidle').catch(() => {});
 
@@ -294,7 +294,7 @@ test.describe('manage/complaints', () => {
     }
   });
 
-  test('7. department filter narrows visible rows', async ({ page }) => {
+  test('7. department filter narrows visible rows', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
     const filter = page.getByLabel(/^Department/i).first();
     if (!(await filter.isVisible().catch(() => false))) {
@@ -325,7 +325,7 @@ test.describe('manage/complaints', () => {
     }
   });
 
-  test('8. show page renders address extras and a working geo link', async ({
+  test('8. show page renders address extras and a working geo link', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     // Find a complaint that has non-zero geo coords; otherwise skip.
@@ -369,7 +369,7 @@ test.describe('manage/complaints', () => {
     expect(popupUrl).toContain(String(target!.lng));
   });
 
-  test('9. mobile-only citizen heuristic shows suffix on Show page', async ({
+  test('9. mobile-only citizen heuristic shows suffix on Show page', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const auth = loadAuth();
@@ -393,7 +393,7 @@ test.describe('manage/complaints', () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('10. real pagination — offset-based _search fires with page 2 nav, not client-slice of first 100', async ({
+  test('10. real pagination — offset-based _search fires with page 2 nav, not client-slice of first 100', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     const auth = loadAuth();
@@ -427,7 +427,7 @@ test.describe('manage/complaints', () => {
     expect(offset, 'offset on second page should be > 0').toBeGreaterThan(0);
   });
 
-  test('11. department column renders via EntityLink — not a raw code', async ({
+  test('11. department column renders via EntityLink — not a raw code', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
@@ -455,7 +455,7 @@ test.describe('manage/complaints', () => {
     await expect(anyDeptLink.or(link)).toBeVisible({ timeout: 15_000 });
   });
 
-  test('12. edit saves description + workflow in a single _update round-trip', async ({
+  test('12. edit saves description + workflow in a single _update round-trip', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     // Guards the regression where description / source / address edits
@@ -501,7 +501,7 @@ test.describe('manage/complaints', () => {
     expect(persisted).toBe(newDesc);
   });
 
-  test('13. PENDINGFORASSIGNMENT filter returns the expected queue size', async () => {
+  test('13. PENDINGFORASSIGNMENT filter returns the expected queue size', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async () => {
     // Probed 2026-04-23: 11 PENDINGFORASSIGNMENT on ke.nairobi. Rather
     // than hard-code 11 (seed data drifts), we assert the server responds
     // coherently — both _count and _search agree on a non-negative

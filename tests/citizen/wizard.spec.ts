@@ -20,7 +20,7 @@ import { citizenOtpLogin } from '../utils/citizen-login';
 import { BASE_URL, generateCitizenPhone } from '../utils/env';
 
 test.describe('Citizen file-complaint wizard', () => {
-  test('walks 6 steps + submits + lands on /pgr/response with NCCG-PGR ID', async ({ page }) => {
+  test('walks 6 steps + submits + lands on /pgr/response with NCCG-PGR ID', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(180_000);
     const phone = generateCitizenPhone();
     await citizenOtpLogin(page, phone);

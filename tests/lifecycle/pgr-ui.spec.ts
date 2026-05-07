@@ -69,7 +69,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 1. Citizen logs in via UI (OTP flow) ───────────────────────────
 
-  test('1 — citizen logs in via UI with fixed OTP', async ({ page }) => {
+  test('1 — citizen logs in via UI with fixed OTP', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     await citizenOtpLogin(page, CITIZEN_PHONE);
 
     const token = await page.evaluate(() => localStorage.getItem('Citizen.token'));
@@ -81,7 +81,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 2. Citizen creates complaint via UI wizard ─────────────────────
 
-  test('2 — citizen creates complaint via UI wizard', async ({ page }) => {
+  test('2 — citizen creates complaint via UI wizard', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     test.skip(!citizenLoggedIn, 'citizen not logged in');
     test.setTimeout(180_000);
 
@@ -262,7 +262,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 3. Admin sees complaint in inbox (UI) ──────────────────────────
 
-  test('3 — admin sees complaint in PGR inbox (UI)', async ({ page }) => {
+  test('3 — admin sees complaint in PGR inbox (UI)', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     test.skip(!complaintCreated, 'complaint not created');
 
     await loginViaApi(page, {
@@ -293,7 +293,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 4. Admin assigns complaint via UI ──────────────────────────────
 
-  test('4 — admin assigns complaint via UI', async ({ page }) => {
+  test('4 — admin assigns complaint via UI', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     test.skip(!complaintCreated, 'complaint not created');
     test.setTimeout(120_000);
 
@@ -361,7 +361,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 5. Admin resolves complaint via UI ─────────────────────────────
 
-  test('5 — admin resolves complaint via UI', async ({ page }) => {
+  test('5 — admin resolves complaint via UI', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     test.skip(!complaintCreated, 'complaint not created');
     test.setTimeout(120_000);
 
@@ -425,7 +425,7 @@ test.describe.serial('PGR lifecycle — UI only', () => {
 
   // ─── 6. Citizen sees resolved complaint on complaints page (UI) ─────
 
-  test('6 — citizen sees resolved complaint on complaints page (UI)', async ({ page }) => {
+  test('6 — citizen sees resolved complaint on complaints page (UI)', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     test.skip(!complaintCreated, 'complaint not created');
     test.setTimeout(60_000);
 

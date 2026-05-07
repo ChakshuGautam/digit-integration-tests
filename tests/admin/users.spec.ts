@@ -102,7 +102,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/users', () => {
-  test('1. list renders with profile columns + at least one citizen row', async ({
+  test('1. list renders with profile columns + at least one citizen row', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
@@ -122,7 +122,7 @@ test.describe('manage/users', () => {
     expect(await dataRows.count()).toBeGreaterThan(1);
   });
 
-  test('2. create — citizen user lands and is retrievable via API', async ({
+  test('2. create — citizen user lands and is retrievable via API', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const uname = `pw${testCode(testInfo, 'USR').toLowerCase().replace(/_/g, '')}`
@@ -159,7 +159,7 @@ test.describe('manage/users', () => {
     expect(list[0].type).toBe('CITIZEN');
   });
 
-  test('3. edit — username disabled, name updates round-trip', async ({
+  test('3. edit — username disabled, name updates round-trip', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Seed via API so we don't depend on test 2's UI state.
@@ -233,7 +233,7 @@ test.describe('manage/users', () => {
     expect(updated.name).toMatch(/PW Edited/);
   });
 
-  test('4. show — profile fields render for a freshly seeded user', async ({
+  test('4. show — profile fields render for a freshly seeded user', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const uname = `pw${testCode(testInfo, 'USRSHOW').toLowerCase().replace(/_/g, '')}`

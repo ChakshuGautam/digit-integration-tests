@@ -118,7 +118,7 @@ test.describe.serial('Citizen track-complaint', () => {
     console.log(`Seeded complaint ${serviceRequestId} for ${CITIZEN_PHONE}`);
   });
 
-  test('My Complaints list shows the seeded complaint with OPEN badge', async ({ page }) => {
+  test('My Complaints list shows the seeded complaint with OPEN badge', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     await citizenOtpLogin(page, CITIZEN_PHONE);
     await page.goto(`${BASE_URL}/digit-ui/citizen/pgr/complaints`, {
@@ -135,7 +135,7 @@ test.describe.serial('Citizen track-complaint', () => {
     await expect(body).not.toContainText('Something went wrong');
   });
 
-  test('Detail page renders Summary / Details / Map / Timeline sections', async ({ page }) => {
+  test('Detail page renders Summary / Details / Map / Timeline sections', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     await citizenOtpLogin(page, CITIZEN_PHONE);
     await page.goto(
@@ -160,7 +160,7 @@ test.describe.serial('Citizen track-complaint', () => {
     await expect(body).not.toContainText('Something went wrong');
   });
 
-  test('Detail URL uses /complaints/:id (PLURAL) — Routes.js export diverges', async ({ page }) => {
+  test('Detail URL uses /complaints/:id (PLURAL) — Routes.js export diverges', { tag: ['@area:pgr', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     await citizenOtpLogin(page, CITIZEN_PHONE);
     await page.goto(`${BASE_URL}/digit-ui/citizen/pgr/complaints`, {

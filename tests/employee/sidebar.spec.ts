@@ -22,7 +22,7 @@ import { test, expect } from '@playwright/test';
 import { BASE_URL } from '../utils/env';
 
 test.describe('employee sidebar — IM filter #446', () => {
-  test('IM options hidden; HRMS + Complaint Registry visible', async ({ page }) => {
+  test('IM options hidden; HRMS + Complaint Registry visible', { tag: ['@area:pgr', '@ccrs:446', '@kind:regression', '@layer:ui', '@persona:employee'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/digit-ui/employee`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,

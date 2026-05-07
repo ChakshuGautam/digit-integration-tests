@@ -97,7 +97,7 @@ test.describe('Onboarding target tenant (PR #26)', () => {
     });
   });
 
-  test('dept is scoped to child tenant, does not leak to root', async () => {
+  test('dept is scoped to child tenant, does not leak to root', { tag: ['@area:configurator-manage', '@area:onboarding', '@ccrs:26', '@kind:regression', '@layer:api', '@persona:admin', '@pr:26'] }, async () => {
     const childCount = await mdmsCountAtTenant(token, CHILD_TENANT, 'common-masters.Department', DEPT_CODE);
     expect(childCount, 'dept should exist at child tenant').toBe(1);
 
@@ -105,7 +105,7 @@ test.describe('Onboarding target tenant (PR #26)', () => {
     expect(rootCount, 'dept must not leak into root tenant — MDMS v2 is strict on tenantId').toBe(0);
   });
 
-  test('targetTenant persists in localStorage and survives reload', async ({ page }) => {
+  test('targetTenant persists in localStorage and survives reload', { tag: ['@area:configurator-manage', '@area:onboarding', '@ccrs:26', '@kind:regression', '@layer:api', '@persona:admin', '@pr:26'] }, async ({ page }) => {
     test.setTimeout(90_000);
 
     // Land on the app to get a live origin for localStorage.

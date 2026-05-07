@@ -14,7 +14,7 @@ function tinyJpegBuffer(): Buffer {
 }
 
 test.describe('05-filestore (#474)', () => {
-  test('REPRO: tiny synthetic JPEG triggers EG_FILESTORE_INPUT_ERROR (pre-fix)', async () => {
+  test('REPRO: tiny synthetic JPEG triggers EG_FILESTORE_INPUT_ERROR (pre-fix)', { tag: ['@area:pgr', '@ccrs:474', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async () => {
     const auth = await loginEmployee();
     const r = await uploadFile(auth, 'ke.nairobi', 'tiny.jpg', tinyJpegBuffer(), 'image/jpeg', 'PGR');
     // After the fix, this assertion will flip — the same payload should
@@ -28,7 +28,7 @@ test.describe('05-filestore (#474)', () => {
     }
   });
 
-  test('Larger valid JPEG should succeed regardless of fix state (control)', async () => {
+  test('Larger valid JPEG should succeed regardless of fix state (control)', { tag: ['@area:pgr', '@ccrs:474', '@kind:lifecycle', '@layer:ui', '@persona:cross'] }, async () => {
     // Synthesize a larger valid JPEG by repeating a real image's body.
     // We reuse the tiny one but pad with valid JPEG-internal sequences;
     // simpler: a 1x1 PNG as a control since PNG has no thumbnail issue.

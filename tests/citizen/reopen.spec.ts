@@ -169,7 +169,7 @@ test.describe('Citizen reopen-complaint UI', () => {
     console.log(`Seeded ${serviceRequestId} → RESOLVED for ${CITIZEN_PHONE}`);
   });
 
-  test('reopen step 0 renders title + 4 reason radios + Next button', async ({ page }) => {
+  test('reopen step 0 renders title + 4 reason radios + Next button', { tag: ['@area:pgr', '@kind:regression', '@layer:api', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     await citizenOtpLogin(page, CITIZEN_PHONE);
     await page.goto(`${BASE_URL}/digit-ui/citizen/pgr/reopen/${serviceRequestId}`, {

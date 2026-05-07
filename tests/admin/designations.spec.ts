@@ -83,7 +83,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/designations', () => {
-  test('1. create with multi-department persists as a string[]', async ({
+  test('1. create with multi-department persists as a string[]', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_MULTI');
@@ -118,7 +118,7 @@ test.describe('manage/designations', () => {
     expect((dept as string[]).length).toBe(2);
   });
 
-  test('2. edit round-trip preserves array shape (add then remove)', async ({
+  test('2. edit round-trip preserves array shape (add then remove)', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_EDIT');
@@ -167,7 +167,7 @@ test.describe('manage/designations', () => {
     expect(dept).toEqual(expect.arrayContaining([DEPT_A, DEPT_B]));
   });
 
-  test('3. legacy single-string department is coerced to array on save', async ({
+  test('3. legacy single-string department is coerced to array on save', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_LEGACY');
@@ -207,7 +207,7 @@ test.describe('manage/designations', () => {
     expect(dept).toEqual([DEPT_A]);
   });
 
-  test('4. department filter narrows list to designations referencing that code', async ({
+  test('4. department filter narrows list to designations referencing that code', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Seed two designations so we know there's exactly one matching DEPT_A
@@ -252,7 +252,7 @@ test.describe('manage/designations', () => {
     await expect(page.getByRole('row').filter({ hasText: codeOther })).toHaveCount(0);
   });
 
-  test('5. deactivation guard counts dependent records', async ({
+  test('5. deactivation guard counts dependent records', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     // Seed a designation referenced by no employees — the guard banner
@@ -287,7 +287,7 @@ test.describe('manage/designations', () => {
     expect(records[0].isActive).not.toBe(false);
   });
 
-  test('5a. department chip input dropdown loads options from mdms', async ({
+  test('5a. department chip input dropdown loads options from mdms', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(`${LIST_PATH}/create`);
@@ -304,7 +304,7 @@ test.describe('manage/designations', () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('5b. show page renders department chips for a multi-dept designation', async ({
+  test('5b. show page renders department chips for a multi-dept designation', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_SHOW');
@@ -325,7 +325,7 @@ test.describe('manage/designations', () => {
     await expect(page.getByText(DEPT_B, { exact: false }).first()).toBeVisible();
   });
 
-  test('5c. API soft-delete (isActive=false) removes row from active list', async ({
+  test('5c. API soft-delete (isActive=false) removes row from active list', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_SOFTDEL');
@@ -357,7 +357,7 @@ test.describe('manage/designations', () => {
     expect(await rows.count()).toBe(0);
   });
 
-  test('5d. HRMS probe returns assignments.designation for guard counter', async () => {
+  test('5d. HRMS probe returns assignments.designation for guard counter', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async () => {
     // The DeactivationGuard for a designation (implemented in
     // DesignationEdit) calls employees?filter[assignments.designation]=...
     // Verify HRMS returns the `assignments.designation` field that the
@@ -383,7 +383,7 @@ test.describe('manage/designations', () => {
     }
   });
 
-  test('6. bulk import accepts comma-list department values as array', async ({
+  test('6. bulk import accepts comma-list department values as array', { tag: ['@area:configurator-manage', '@area:hrms', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     const code = testCode(testInfo, 'DESIG_BULK');

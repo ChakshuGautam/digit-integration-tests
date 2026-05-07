@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test';
 import { BASE_URL, FIXED_OTP, generateCitizenPhone } from '../utils/env';
 
 test.describe('Citizen registration (auto-register on unknown number)', () => {
-  test('fresh phone → OTP → name+email → /all-services', async ({ page }) => {
+  test('fresh phone → OTP → name+email → /all-services', { tag: ['@area:auth', '@kind:regression', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     test.setTimeout(120_000);
     const phone = generateCitizenPhone();
 

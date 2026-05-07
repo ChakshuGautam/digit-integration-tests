@@ -24,7 +24,7 @@ import { test, expect } from '@playwright/test';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('configurator login — empty defaults (#412)', () => {
-  test('username, password, tenant inputs render empty on initial load', async ({ page }) => {
+  test('username, password, tenant inputs render empty on initial load', { tag: ['@area:auth', '@area:configurator-manage', '@ccrs:412', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto('/configurator/login');
 
     const username = page.locator('input#username');
@@ -43,7 +43,7 @@ test.describe('configurator login — empty defaults (#412)', () => {
     await expect(tenant).toHaveValue('');
   });
 
-  test('form + password input carry autocomplete-off attributes', async ({ page }) => {
+  test('form + password input carry autocomplete-off attributes', { tag: ['@area:auth', '@area:configurator-manage', '@ccrs:412', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto('/configurator/login');
 
     // Form-level `autocomplete="off"` suppresses the browser's

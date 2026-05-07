@@ -20,7 +20,7 @@ import { test, expect } from '@playwright/test';
 import { BASE_URL } from '../utils/env';
 
 test.describe('employee profile — country prefix #444', () => {
-  test('mobile prefix renders +254 on Kenya tenant (not +91)', async ({ page }) => {
+  test('mobile prefix renders +254 on Kenya tenant (not +91)', { tag: ['@area:pgr', '@ccrs:444', '@kind:regression', '@layer:ui', '@persona:employee'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/digit-ui/employee/user/profile`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,

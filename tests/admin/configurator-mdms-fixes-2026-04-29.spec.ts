@@ -7,7 +7,7 @@ import { loginEmployee, mdmsCreate, mdmsSearch, mdmsUpdate } from '../utils/laun
 const T = 'ke.nairobi';
 
 test.describe('01-configurator-mdms: Department CRUD (#472 + follow-ups)', () => {
-  test('Department create REJECTS the legacy `description` field', async () => {
+  test('Department create REJECTS the legacy `description` field', { tag: ['@area:configurator-manage', '@area:mdms-schema', '@ccrs:472', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // PR #40 removed `description` from DepartmentCreate. The schema
     // still rejects it server-side — sanity check that the schema
     // contract hasn't drifted.
@@ -23,7 +23,7 @@ test.describe('01-configurator-mdms: Department CRUD (#472 + follow-ups)', () =>
     expect(r.Errors?.[0]?.message).toMatch(/extraneous key \[description\]/);
   });
 
-  test('Department create with only schema-allowed fields SUCCEEDS', async () => {
+  test('Department create with only schema-allowed fields SUCCEEDS', { tag: ['@area:configurator-manage', '@area:mdms-schema', '@ccrs:472', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     const auth = await loginEmployee();
     const uid = `DEPT_PW_OK_${Date.now()}`;
     const r = await mdmsCreate(auth, 'common-masters.Department', {
@@ -41,7 +41,7 @@ test.describe('01-configurator-mdms: Department CRUD (#472 + follow-ups)', () =>
     await mdmsUpdate(auth, 'common-masters.Department', m);
   });
 
-  test('Department update with leaked `_isActive` / `_uniqueIdentifier` / `id` is REJECTED by MDMS', async () => {
+  test('Department update with leaked `_isActive` / `_uniqueIdentifier` / `id` is REJECTED by MDMS', { tag: ['@area:configurator-manage', '@area:mdms-schema', '@ccrs:472', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // Reproduces what the old dataProvider was sending. PR #40 strips
     // these client-side; this test guards against a regression that
     // re-introduces the leak (or a future change to the configurator's
@@ -69,7 +69,7 @@ test.describe('01-configurator-mdms: Department CRUD (#472 + follow-ups)', () =>
 });
 
 test.describe('01-configurator-mdms: ComplaintType schema sanity', () => {
-  test('ServiceDefs schema declares keywords / order / menuPath (so ComplaintTypeCreate defaults are safe)', async () => {
+  test('ServiceDefs schema declares keywords / order / menuPath (so ComplaintTypeCreate defaults are safe)', { tag: ['@area:configurator-manage', '@area:mdms-schema', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // Verified post-explorer: the schema does include all three. This
     // test guards against schema drift removing them.
     const auth = await loginEmployee();
@@ -87,7 +87,7 @@ test.describe('01-configurator-mdms: ComplaintType schema sanity', () => {
 });
 
 test.describe('01-configurator-mdms: dataProvider create needs same sanitize as update', () => {
-  test('mdmsCreate REJECTS the same `_isActive` / `id` leak', async () => {
+  test('mdmsCreate REJECTS the same `_isActive` / `id` leak', { tag: ['@area:configurator-manage', '@area:mdms-schema', '@kind:edge-case', '@kind:regression', '@layer:api', '@persona:admin'] }, async () => {
     // PR #40 fixed the *update* path. The *create* path on
     // dataProvider.ts:534 was untouched. This test reproduces the leak
     // shape react-admin would emit if a defaultRecord included `id` or

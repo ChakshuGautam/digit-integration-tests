@@ -61,7 +61,7 @@ test.afterAll(async () => {
 });
 
 test.describe('manage/complaint-types', () => {
-  test('1. list renders with Service Code / Name / Department / SLA / Status columns', async ({
+  test('1. list renders with Service Code / Name / Department / SLA / Status columns', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }) => {
     await page.goto(LIST_PATH);
@@ -86,7 +86,7 @@ test.describe('manage/complaint-types', () => {
     expect(live.length).toBeGreaterThan(0);
   });
 
-  test('2. create → edit → deactivate round-trip; visible at city tenant', async ({
+  test('2. create → edit → deactivate round-trip; visible at city tenant', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     if (!liveDeptCode) test.skip(true, 'No active department seeded on tenant');
@@ -156,7 +156,7 @@ test.describe('manage/complaint-types', () => {
     expect((afterEdit[0].data as Record<string, unknown>).slaHours).toBe(72);
   });
 
-  test('3. bulk import — happy path creates 3 types, each carries SLA + dept', async ({
+  test('3. bulk import — happy path creates 3 types, each carries SLA + dept', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:happy-path', '@layer:ui', '@persona:admin'] }, async ({
     page,
   }, testInfo) => {
     if (!liveDeptCode) test.skip(true, 'No active department seeded on tenant');
@@ -213,7 +213,7 @@ test.describe('manage/complaint-types', () => {
     }
   });
 
-  test('4. department reference filter narrows the list', async ({ page }) => {
+  test('4. department reference filter narrows the list', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(LIST_PATH);
 
     const filter = page.getByLabel(/^Department/i).first();
@@ -243,7 +243,7 @@ test.describe('manage/complaint-types', () => {
     }
   });
 
-  test('5. tenant parity — api create at ke is visible at ke.nairobi', async ({
+  test('5. tenant parity — api create at ke is visible at ke.nairobi', { tag: ['@area:configurator-manage', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({
   }, testInfo) => {
     if (!liveDeptCode) test.skip(true, 'No active department seeded on tenant');
 

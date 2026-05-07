@@ -18,7 +18,7 @@ test.describe('PGR Dashboard', () => {
     await loginConfigurator(page);
   });
 
-  test('dashboard page loads with heading', async ({ page }) => {
+  test('dashboard page loads with heading', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -29,7 +29,7 @@ test.describe('PGR Dashboard', () => {
     await expect(heading).toContainText('PGR Dashboard');
   });
 
-  test('overview card shows 3 KPI metrics', async ({ page }) => {
+  test('overview card shows 3 KPI metrics', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -46,7 +46,7 @@ test.describe('PGR Dashboard', () => {
     }
   });
 
-  test('all chart canvases render', async ({ page }) => {
+  test('all chart canvases render', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -69,7 +69,7 @@ test.describe('PGR Dashboard', () => {
     await expect(canvases).toHaveCount(8, { timeout: 10_000 });
   });
 
-  test('chart section titles are visible', async ({ page }) => {
+  test('chart section titles are visible', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -92,7 +92,7 @@ test.describe('PGR Dashboard', () => {
     }
   });
 
-  test('sidebar has PGR Dashboard nav link', async ({ page }) => {
+  test('sidebar has PGR Dashboard nav link', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -106,7 +106,7 @@ test.describe('PGR Dashboard', () => {
     await expect(navLink).toHaveClass(/bg-primary/);
   });
 
-  test('KPI values show numbers', async ({ page }) => {
+  test('KPI values show numbers', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -123,7 +123,7 @@ test.describe('PGR Dashboard', () => {
     }
   });
 
-  test('breakdown table with 4 tabs', async ({ page }) => {
+  test('breakdown table with 4 tabs', { tag: ['@area:configurator-manage', '@area:dashboard', '@area:pgr', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/pgr-dashboard`, {
       waitUntil: 'networkidle',
       timeout: 30_000,

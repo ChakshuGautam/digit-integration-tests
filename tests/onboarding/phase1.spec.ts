@@ -105,7 +105,7 @@ test.describe('Onboarding — Phase 1: Tenant + Branding', () => {
     await deactivateTenantViaApi(TENANT_CODE);
   });
 
-  test('login → upload → preview → tenant lands in manage list', async ({ page }) => {
+  test('login → upload → preview → tenant lands in manage list', { tag: ['@area:onboarding', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     test.setTimeout(180_000);
 
     // 1. Onboarding-mode login through the configurator login form.
