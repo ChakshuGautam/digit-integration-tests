@@ -270,10 +270,21 @@ function flattenSpecs(report: PwReport): { spec: PwSpec; describePath: string[] 
 // ---------------------------------------------------------------------------
 
 function attachmentUrl(absPath: string, runId: string): string {
-  // Playwright dumps to <repo>/test-results/<spec-hash>/file. We publish
-  // test-results/ verbatim under runs/<runId>/test-results/.
-  const cwd = process.cwd();
-  const rel = path.relative(cwd, absPath).replace(/\\/g, '/');
+  // Playwright writes attachments under <repo>/test-results/ or
+  // <repo>/playwright-report/data/. We publish each verbatim under
+  // runs/<runId>/. Build the URL by extracting the path starting at the
+  // first occurrence of one of those known prefixes — this works whether
+  // build-catalog runs on the runner (cwd = repo) or somewhere else
+  // (e.g. recovering an old report from the host).
+  const norm = absPath.replace(/\\/g, '/');
+  for (const prefix of ['test-results/', 'playwright-report/']) {
+    const idx = norm.indexOf('/' + prefix);
+    if (idx >= 0) return `runs/${runId}/${norm.slice(idx + 1)}`;
+    if (norm.startsWith(prefix)) return `runs/${runId}/${norm}`;
+  }
+  // Fallback: relative-from-cwd as before. URLs may still be valid when
+  // running on the runner, but get caught by reviewers if not.
+  const rel = path.relative(process.cwd(), absPath).replace(/\\/g, '/');
   return `runs/${runId}/${rel}`;
 }
 

@@ -35,6 +35,21 @@ for f in catalog.json history.json playwright-report/index.html report.json; do
   fi
 done
 
+# Refuse to publish if test-results/ is empty or near-empty. Videos and
+# traces live under test-results/<test-dir>/. Publishing with an empty
+# test-results would silently overwrite the host's existing run dir
+# (lost 191 MB of videos this way once — never again).
+if [[ ! -d test-results ]]; then
+  echo "[publish] test-results/ directory is missing — refusing to publish (run playwright first)" >&2
+  exit 3
+fi
+RESULTS_COUNT=$(find test-results -mindepth 1 -maxdepth 1 -type d | wc -l)
+if [[ "$RESULTS_COUNT" -lt 2 ]]; then
+  echo "[publish] test-results/ has only $RESULTS_COUNT entry — looks like Playwright didn't run here" >&2
+  echo "[publish] aborting to avoid overwriting an existing run on the host" >&2
+  exit 3
+fi
+
 # Free-space pre-check on host (best-effort: abort if <5GB free).
 free_kb=$(ssh -o ConnectTimeout=10 "$HOST_SSH" "df --output=avail -k '$HOST_DIR' 2>/dev/null | tail -1" || echo 0)
 if [[ "$free_kb" =~ ^[0-9]+$ ]] && [[ "$free_kb" -lt 5242880 ]]; then
