@@ -1,6 +1,21 @@
 import { test } from '@playwright/test';
 
-test('inspect theme-config edit page colors', { tag: ['@area:theme', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+test('inspect theme-config edit page colors', {
+  annotation: {
+    type: 'description',
+    description: `Diagnostic spec for the theme-config editor — captures the exact color-input names and values the form is rendering, plus all MDMS/theme network calls and console output, then snapshots a full-page screenshot. Used when investigating cases where an admin edits theme colors and sees swatches that don't match the underlying hex values.
+
+Steps:
+1. Attach listeners for console messages, MDMS/theme/oauth requests, and theme/MDMS responses.
+2. Open the configurator root; if the login form appears, fill ADMIN / eGov@123 / tenant ke, pick Management mode, and sign in.
+3. Navigate to /configurator/manage/theme-config/kenya-green/edit and wait 8s for hydration.
+4. From the page, evaluate the DOM to collect: count of <input type="color">, name+value of the first 30 colors, computed background of color swatches, hex-bearing text inputs, and a 500-char snippet of body text.
+5. Log the captured state, the first 30 console messages, the first 10 captured requests, and the first 5 captured responses.
+6. Save a fullPage screenshot at /tmp/theme-config-edit.png.
+
+Diagnostic-only; no assertions. Long-timeout (120s) because login + heavy MDMS hydration before the editor renders.`,
+  },
+  tag: ['@area:theme', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
   test.setTimeout(120_000);
 
   const consoleMessages: string[] = [];

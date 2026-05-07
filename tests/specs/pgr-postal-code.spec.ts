@@ -29,7 +29,20 @@ test.describe('PGR Postal Code Validation (#478)', () => {
     });
   });
 
-  test('postal code field is not required — form proceeds without it', { tag: ['@area:pgr', '@ccrs:478', '@kind:regression', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
+  test('postal code field is not required — form proceeds without it', {
+    annotation: {
+      type: 'description',
+      description: `Confirms the employee Create Complaint form treats postal code as optional (CCRS#478). Many Kenyan addresses don't have a postal code at all, so making it required would block legitimate complaints; the form must let an employee leave it blank.
+
+Steps:
+1. Log in via API as the city admin and seed the page session.
+2. Navigate to /digit-ui/employee/pgr/create-complaint and wait for hydration.
+3. Locate input[name="postalCode"] and clear it.
+4. Read the input's required attribute; assert it is null (not required).
+
+Catches a regression where the field is incorrectly marked required, blocking complaints with no postal code.`,
+    },
+    tag: ['@area:pgr', '@ccrs:478', '@kind:regression', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     await page.goto(CREATE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
@@ -51,7 +64,20 @@ test.describe('PGR Postal Code Validation (#478)', () => {
     expect(required).toBeNull();
   });
 
-  test('valid Kenya 5-digit postal code is accepted', { tag: ['@area:pgr', '@ccrs:478', '@kind:regression', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
+  test('valid Kenya 5-digit postal code is accepted', {
+    annotation: {
+      type: 'description',
+      description: `Positive case for CCRS#478: a well-formed Kenya postal code (5 digits, may start with 0 — e.g. Nairobi GPO is 00100) must NOT trigger a validation error. Pairs with the rejection cases to ensure the regex is correct in both directions.
+
+Steps:
+1. Log in via API as the city admin.
+2. Navigate to /digit-ui/employee/pgr/create-complaint and wait for hydration.
+3. Fill input[name="postalCode"] with "00100" and blur.
+4. Assert no element with text "CS_COMPLAINT_POSTALCODE_INVALID_ERROR" is present (count = 0).
+
+Catches a regression where the validator over-restricts and rejects valid 5-digit codes.`,
+    },
+    tag: ['@area:pgr', '@ccrs:478', '@kind:regression', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     await page.goto(CREATE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
@@ -74,7 +100,20 @@ test.describe('PGR Postal Code Validation (#478)', () => {
     await expect(errorNearby).toHaveCount(0);
   });
 
-  test('invalid postal code (6 digits / Indian format) is rejected', { tag: ['@area:pgr', '@ccrs:478', '@kind:edge-case', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
+  test('invalid postal code (6 digits / Indian format) is rejected', {
+    annotation: {
+      type: 'description',
+      description: `Edge case for CCRS#478: a 6-digit Indian-format postal code ("110001") must be rejected. The fix replaced the legacy 6-digit regex with a 5-digit Kenya regex; this test guards against any accidental fallback to the Indian format.
+
+Steps:
+1. Log in via API as the city admin.
+2. Navigate to /digit-ui/employee/pgr/create-complaint.
+3. Fill input[name="postalCode"] with "110001" and click the Submit button.
+4. Assert the URL still contains "create-complaint" (validation blocked navigation away).
+
+Catches a regression where the regex reverts to the legacy 6-digit Indian PIN code format.`,
+    },
+    tag: ['@area:pgr', '@ccrs:478', '@kind:edge-case', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     await page.goto(CREATE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
@@ -102,7 +141,20 @@ test.describe('PGR Postal Code Validation (#478)', () => {
     expect(page.url()).toContain('create-complaint');
   });
 
-  test('invalid postal code (short / 3 digits) is rejected', { tag: ['@area:pgr', '@ccrs:478', '@kind:edge-case', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
+  test('invalid postal code (short / 3 digits) is rejected', {
+    annotation: {
+      type: 'description',
+      description: `Edge case for CCRS#478: a too-short postal code ("123") must be rejected. Confirms the validator enforces minimum length, not just the prefix or character set.
+
+Steps:
+1. Log in via API as the city admin.
+2. Navigate to /digit-ui/employee/pgr/create-complaint.
+3. Fill input[name="postalCode"] with "123" and click Submit.
+4. Assert the URL still contains "create-complaint" (validation blocked navigation away).
+
+Pairs with the 6-digit edge case to bracket the accepted length range from both sides.`,
+    },
+    tag: ['@area:pgr', '@ccrs:478', '@kind:edge-case', '@layer:ui', '@persona:cross'] }, async ({ page }) => {
     await page.goto(CREATE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
