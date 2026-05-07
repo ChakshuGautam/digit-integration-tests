@@ -57,7 +57,20 @@ test.describe('Employee Create (#458, #460, #471)', () => {
     await expect(errorAlert.first()).toBeVisible({ timeout: 5_000 });
   });
 
-  test('form has all expected sections', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('form has all expected sections', {
+    annotation: {
+      type: 'description',
+      description: `Sanity check that the Employee Create form renders the four canonical sections an admin needs to fill in (Employee Info, Roles, Assignments, Jurisdictions). Guards against a regression where a refactor of the form layout silently drops a section, which would leave admins unable to assign roles or jurisdictions through the UI.
+
+Steps:
+1. Log in as configurator admin and open /manage/employees/create.
+2. Wait for the user.name input to render (form mounted).
+3. Assert each of the four section headings — Employee Info, Roles, Assignments, Jurisdictions — is visible.
+4. Assert the two key inputs (employee code, mobile number) are also visible.
+
+Catches a regression where any of the four core form sections gets accidentally removed.`,
+    },
+    tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/employees/create`, {
       waitUntil: 'networkidle',
       timeout: 30_000,

@@ -13,7 +13,18 @@ test.describe('Employee Edit (#476)', () => {
     await loginConfigurator(page);
   });
 
-  test('employee list loads', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:476', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('employee list loads', {
+    annotation: {
+      type: 'description',
+      description: `Smoke check that the configurator's employee management surface renders. Either a populated grid/table or a no-data message is acceptable — the test only fails if the page never produces visible content, which would mean the manage route is broken or HRMS search is failing outright.
+
+Steps:
+1. Log in as configurator admin and open /manage/employees.
+2. Wait up to 20s for the first heading, table, datagrid, or grid role to become visible.
+
+Pairs with the heavier edit spec — if this one fails, the edit test will fail for the same root cause and can be safely ignored.`,
+    },
+    tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:476', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/employees`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -25,7 +36,21 @@ test.describe('Employee Edit (#476)', () => {
     await expect(content).toBeVisible({ timeout: 20_000 });
   });
 
-  test('edit employee preserves assignments and jurisdictions', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:476', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('edit employee preserves assignments and jurisdictions', {
+    annotation: {
+      type: 'description',
+      description: `Catches CCRS#476 regression: HRMS update used to NPE on assignment.getAuditDetails().setLastModifiedBy() when the configurator stripped auditDetails from existing assignments/jurisdictions before resubmitting. This test drives a real edit through the UI and asserts the response page does not surface a NullPointerException or a 500 from HRMS.
+
+Steps:
+1. Log in as configurator admin and open /manage/employees.
+2. Click the first row in the employee list to navigate to the show/edit page.
+3. If a separate Edit button is visible, click it to enter edit mode.
+4. Assert both the Assignments and Jurisdictions sections render (existing rows must be present, not blanked).
+5. If a Save/Update button is visible, submit the form and assert the body does not contain "NullPointerException" or "Internal Server Error".
+
+Marked test.slow() because HRMS update fans out across multiple service calls, and the test is intentionally tolerant of show-vs-edit page variants since manage routes have shifted historically.`,
+    },
+    tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:476', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     test.slow(); // Employee edit involves multiple API calls
 
     // Navigate to employee list
