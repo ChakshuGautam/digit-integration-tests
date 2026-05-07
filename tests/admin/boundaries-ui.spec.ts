@@ -147,7 +147,23 @@ test.describe('manage/boundaries — list reflects boundaries created via wizard
     await deactivateTenantViaApi(TENANT_CODE);
   });
 
-  test('search returns both PW-prefixed boundaries created through onboarding', { tag: ['@area:manage-boundaries', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('search returns both PW-prefixed boundaries created through onboarding', {
+    annotation: {
+      type: 'description',
+      description: `End-to-end check that the Manage > Boundaries list reflects boundaries created through the onboarding wizard. Drives a full Phase 1 (tenant) + Phase 2 (hierarchy + boundary upload) walk to ensure the assertion runs against real wizard-created data, then switches to Management mode and asserts both PW-prefixed rows appear in the list.
+
+Steps:
+1. setTimeout 180s; generate tenant + boundary xlsx fixtures in beforeAll.
+2. Login (Onboarding mode): fill ADMIN/eGov@123/ke; click Onboarding then Sign In; wait for /phase/1.
+3. Phase 1: Start Setup → upload tenant xlsx → assert tenant code cell → Upload to DIGIT → branding step → Continue → assert "Phase 1 Complete!" → Continue to Phase 2.
+4. Phase 2: "Option 1: Create New Hierarchy" → fill hierarchyType → Create Hierarchy → upload boundary xlsx → "Upload N Boundaries" → assert "Boundaries Created Successfully!".
+5. Click the header "Management" button; wait for /configurator/manage URL.
+6. Navigate to /manage/boundaries; assert "Boundaries" heading is visible within 30s.
+7. If a search input exists: fill BOUNDARY_ROOT, wait networkidle, assert matching row visible within 30s; clear and fill BOUNDARY_CHILD, assert matching row visible.
+
+KNOWN FAILURE on Nairobi (2026-05-07): BoundaryList queries the session tenant (root 'ke') instead of the wizard's targetTenant. Boundaries created at the child tenant don't appear here. The test is intentionally left red until the manage UI reads state.targetTenant. Teardown is API-only because the configurator has no UI delete affordance for tenants — tracked in CCRS#21.`,
+    },
+    tag: ['@area:manage-boundaries', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     test.setTimeout(180_000);
 
     // -------- Login (Onboarding mode) --------
