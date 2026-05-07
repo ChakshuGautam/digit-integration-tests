@@ -293,7 +293,11 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
     let latestRun: LatestRun | null = null;
 
     if (ran) {
-      lastStatus = ran.test.status;
+      // Playwright nests two status fields:
+      //   test.status   : 'expected' | 'unexpected' | 'flaky' | 'skipped'
+      //   result.status : 'passed'   | 'failed'     | 'timedOut' | 'skipped' | 'interrupted'
+      // We want the result-level outcome — that's what users mean by "passed".
+      lastStatus = ran.result.status;
       lastDurationMs = ran.result.duration;
 
       const screenshots: string[] = [];
@@ -319,11 +323,9 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
 
     // History merge: prepend this run's outcome (if any) to prior history.
     const priorHistory = oldHistory.perTest[rec.id] || [];
-    const newHistory: HistoryEntry[] = ran && ran.test.status !== 'skipped'
-      ? [{ runId: opts.runId, status: ran.test.status, durationMs: ran.result.duration }, ...priorHistory]
-      : ran
-        ? [{ runId: opts.runId, status: 'skipped', durationMs: ran.result.duration }, ...priorHistory]
-        : priorHistory;
+    const newHistory: HistoryEntry[] = ran
+      ? [{ runId: opts.runId, status: ran.result.status, durationMs: ran.result.duration }, ...priorHistory]
+      : priorHistory;
     const trimmedHistory = newHistory.slice(0, HISTORY_LIMIT);
 
     tests.push({
