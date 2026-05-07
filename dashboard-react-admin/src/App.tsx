@@ -8,7 +8,7 @@ export default function App() {
     <Admin
       dataProvider={dataProvider}
       title="DIGIT integration tests"
-      basename="/tests"
+      basename={import.meta.env.BASE_URL.replace(/\/$/, '')}
     >
       <Resource
         name="tests"

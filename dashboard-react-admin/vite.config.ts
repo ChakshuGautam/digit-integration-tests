@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react';
 // same host, so the relative URLs Just Work.
 export default defineConfig({
   plugins: [react()],
-  base: '/tests/',
+  base: '/tests-v2/',
   server: {
     port: 5173,
     proxy: {
