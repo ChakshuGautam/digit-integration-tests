@@ -129,7 +129,19 @@ test.describe.serial('PGR SLA auto-escalation (fast)', () => {
   let citizenUserInfo: Record<string, unknown>;
   let employeeUuid: string;
 
-  test('1 — acquire tokens', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
+  test('1 — acquire tokens', {
+    annotation: {
+      type: 'description',
+      description: `Token-acquisition step for the fast SLA auto-escalation test (~2 min total). Acquires both admin (root) and citizen (registered via OTP helper) tokens.
+
+Steps:
+1. getDigitToken with ROOT_TENANT, ADMIN_USER, ADMIN_PASS; assert access_token truthy.
+2. registerCitizen(CITIZEN_PHONE) to send OTP, then login (or create+login on first run).
+3. Assert citizen token truthy.
+
+Trimmed-down sibling of the larger pgr-escalation-api spec — does only the assertions needed to drive a single auto-escalation observation.`,
+    },
+    tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const adminResp = await getDigitToken({ tenant: ROOT_TENANT, username: ADMIN_USER, password: ADMIN_PASS });
     adminToken = adminResp.access_token;
     adminUserInfo = adminResp.UserRequest as Record<string, unknown>;
@@ -141,7 +153,20 @@ test.describe.serial('PGR SLA auto-escalation (fast)', () => {
     expect(citizenToken).toBeTruthy();
   });
 
-  test('2 — verify ESCALATE allows SYSTEM role on PENDINGATLME', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
+  test('2 — verify ESCALATE allows SYSTEM role on PENDINGATLME', {
+    annotation: {
+      type: 'description',
+      description: `Pre-flight check for the auto-escalation behavior: the workflow's ESCALATE action on PENDINGATLME must include role SYSTEM, otherwise the scheduler can't transition the workflow when SLA breaches. A clear failure here saves a 130-second wait in step 4.
+
+Steps:
+1. fetchPgrWorkflow() and assert the BusinessService is found.
+2. Locate the PENDINGATLME state.
+3. Find action ESCALATE and assert it exists.
+4. Assert escalate.roles contains 'SYSTEM' (with a custom failure message that includes the actual roles for diagnostics).
+
+Read-only: this test does not patch the workflow — that's pgr-escalation-api spec's job.`,
+    },
+    tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const biz = await fetchPgrWorkflow(adminToken);
     expect(biz).toBeTruthy();
     const pendingAtLme = biz.states.find((s: any) => s.applicationStatus === 'PENDINGATLME');
@@ -151,7 +176,20 @@ test.describe.serial('PGR SLA auto-escalation (fast)', () => {
       .toContain('SYSTEM');
   });
 
-  test('3 — verify HRMS reportingTo chain has at least one link', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
+  test('3 — verify HRMS reportingTo chain has at least one link', {
+    annotation: {
+      type: 'description',
+      description: `Pre-flight check #2: the deployment must have at least one HRMS employee whose current assignment has a reportingTo set. Without that, scanAndEscalate() finds no escalation target and the auto-escalation step in 4 would silently never fire.
+
+Steps:
+1. searchEmployees(adminToken, TENANT); assert count > 0.
+2. Find the first employee whose isCurrentAssignment record has a reportingTo UUID.
+3. Assert such an employee exists.
+4. Stash subordinate.uuid as employeeUuid for step 4.
+
+Read-only: doesn't patch HRMS — fails fast with a clear error if the deployment isn't seeded with a hierarchy.`,
+    },
+    tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     const employees = await searchEmployees(adminToken, TENANT);
     expect(employees.length, `No employees found in ${TENANT}`).toBeGreaterThan(0);
 
@@ -164,7 +202,23 @@ test.describe.serial('PGR SLA auto-escalation (fast)', () => {
     employeeUuid = subordinate.uuid;
   });
 
-  test('4 — auto-escalation: scheduler fires within ~120 s of SLA breach', { tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
+  test('4 — auto-escalation: scheduler fires within ~120 s of SLA breach', {
+    annotation: {
+      type: 'description',
+      description: `End-to-end observation: a freshly-assigned complaint should be auto-escalated by pgr-services' scheduler within roughly 120 seconds (60s tick interval + 30s SLA + buffer). This is the test that proves the scheduler is actually running on the deployment.
+
+Steps:
+1. setTimeout 160s.
+2. POST PGR _create as the citizen; capture srid.
+3. ASSIGN via raw /egov-wf/process/_transition (not PGR _update) so processInstance.assignes is populated — the scheduler depends on this.
+4. Poll workflow history every 5s for up to 130s, looking for any ProcessInstance with action=ESCALATE and comment starting "Auto-escalated".
+5. Assert escalated === true (with diagnostic message pointing at PGR_ESCALATION_* env vars).
+6. Assert level >= 1.
+7. fetchComplaint(srid) and assert additionalDetail.escalationLevel >= 1.
+
+Test timeout is 160s because the worst-case wall-clock is ~130s (just-missed scheduler tick + SLA + buffer). If the deployment doesn't have the env config, this is the fastest way to discover that.`,
+    },
+    tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
     test.setTimeout(160_000);
 
     // Create a fresh complaint
