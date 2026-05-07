@@ -27,7 +27,24 @@ import { BASE_URL } from '../utils/env';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('citizen login mobile validation — #429', () => {
-  test('5-digit number shows inline error + helper hint', { tag: ['@area:auth', '@ccrs:429', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
+  test('5-digit number shows inline error + helper hint', {
+    annotation: {
+      type: 'description',
+      description: `Edge case for CCRS#429: a citizen typing a too-short mobile must see (a) the persistent helper hint visible BEFORE they touch the field, and (b) the inline validation error AFTER they submit. The error must come from MDMS — not the legacy hardcoded Indian copy. The test asserts the error contains "valid" but does NOT contain "india", "indian", or "+91".
+
+Steps:
+1. Drop admin storageState (citizen login is public).
+2. Navigate to /digit-ui/citizen/login.
+3. Wait for input[name="mobileNumber"] up to 20s.
+4. Assert a helper hint matching /10-digit|N-digit mobile number/i is visible before touching the field.
+5. Click the mobile input and type "12345" with 30ms key delay.
+6. Click the visible Next button (matching /NEXT|Next|CS_COMMONS_NEXT/).
+7. Locate any body text matching /valid/i; assert it's visible within 10s.
+8. Read its lower-cased text and assert it does NOT contain "india", "indian", or "+91".
+
+Catches a regression where the citizen login regresses to the hardcoded Indian validator.`,
+    },
+    tag: ['@area:auth', '@ccrs:429', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/digit-ui/citizen/login`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
