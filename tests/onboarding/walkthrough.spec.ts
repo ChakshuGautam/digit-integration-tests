@@ -195,7 +195,21 @@ test.describe('Onboarding — full walkthrough (Phases 1–3)', () => {
     await deactivateTenantViaApi(TENANT_CODE);
   });
 
-  test('login → Phase 1 → Phase 2 → Phase 3 → ready for Phase 4', { tag: ['@area:onboarding', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('login → Phase 1 → Phase 2 → Phase 3 → ready for Phase 4', {
+    annotation: {
+      type: 'description',
+      description: `End-to-end UI walk through the configurator's onboarding wizard for a brand-new tenant: login (Onboarding mode) → Phase 1 (tenant xlsx + skip branding) → Phase 2 (create hierarchy + upload boundary xlsx + verify + upload) → Phase 3 (common-masters xlsx with Departments/Designations/ComplaintType + Create All) → ready for Phase 4. Drives only the UI; the wizard's internal API calls are exercised through the actual buttons/file pickers, not API helpers.
+
+Steps:
+1. setTimeout 360s; generate three xlsx fixtures (tenant, boundary, masters) in beforeAll.
+2. Open /configurator/login, fill ADMIN/eGov@123/ke, click Onboarding, click Sign In, wait for /configurator/phase/1.
+3. Phase 1: click Start Setup → upload tenant xlsx → assert "File loaded:" + tenant code cell → click Upload to DIGIT → assert "Tenant Master Uploaded!" → on the branding step click Continue → assert "Phase 1 Complete!" → click Continue to Phase 2.
+4. Phase 2: click "Option 1: Create New Hierarchy" → fill #hierarchyType → click Create Hierarchy → upload boundary xlsx → assert root + child boundary codes appear in cells → click "Upload N Boundaries" → click Continue to Phase 3.
+5. Phase 3: click Start Setup → upload masters xlsx → assert seeded department code is visible → click Create All → assert "Phase 3 Complete!" within 120s → assert "Continue to Phase 4" button is visible.
+
+Teardown is API-only because the configurator has no UI delete affordance for tenants — tracked in CCRS#21. Phase 4 (employee xlsx) is intentionally a separate spec because it needs jurisdiction+role validation setup. Test timeout is 360s because Phase 2 boundary uploads + Phase 3 Create All can each take 60–120s.`,
+    },
+    tag: ['@area:onboarding', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
     test.setTimeout(360_000);
 
     // -------- Login (Onboarding mode) --------
