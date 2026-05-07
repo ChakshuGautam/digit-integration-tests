@@ -69,6 +69,13 @@ function applyFilter<T extends Record<string, unknown>>(
         if (!v.some(want => tags.includes(want as string))) return false;
         continue;
       }
+      // Per-facet OR-within-facet, AND-across-facets. UI passes
+      // tags_any_persona / tags_any_area / etc.
+      if (k.startsWith('tags_any_') && Array.isArray(v) && v.length) {
+        const tags = (row.tags as string[] | undefined) || [];
+        if (!v.some(want => tags.includes(want as string))) return false;
+        continue;
+      }
       // Direct equality on other fields.
       if (row[k] !== v) return false;
     }
