@@ -30,22 +30,16 @@ export default function Layout({ children }: { children: ReactNode }) {
             backgroundColor: '#000 !important',
           },
         }),
-        // Sidebar tracks the AppBar color so the chrome reads as one piece.
-        // Uses palette.AppBar.darkBg when set (Material themes provide it
-        // via overlay); falls back to primary.main which is what AppBar
-        // defaults to in light themes.
-        '& .RaSidebar-fixed, & .RaMenu-root': (t) => {
-          const palette = t.palette as typeof t.palette & {
-            AppBar?: { darkBg?: string; darkColor?: string };
-          };
-          return {
-            backgroundColor: palette.AppBar?.darkBg ?? palette.primary.main,
-            color: palette.AppBar?.darkColor ?? palette.primary.contrastText,
-            '& .MuiListItemIcon-root, & .MuiTypography-root, & .MuiListItemText-primary': {
-              color: 'inherit',
-            },
-          };
-        },
+        // Sidebar tracks the AppBar so the chrome reads as one piece.
+        // In dark mode the AppBar uses palette.background.paper (#121212-ish);
+        // in light mode it uses primary.main. Match that exactly.
+        // We do NOT override text color — letting MUI pick the right
+        // contrast color avoids the white-on-white legibility bug.
+        '& .RaSidebar-fixed': (t) => ({
+          backgroundColor: t.palette.mode === 'dark'
+            ? t.palette.background.paper
+            : t.palette.primary.main,
+        }),
       }}
     >
       <RaLayout appBar={MyAppBar} menu={MyMenu}>{children}</RaLayout>
