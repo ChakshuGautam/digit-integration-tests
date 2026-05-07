@@ -71,6 +71,34 @@ function renderRunSummary() {
     `<span class="muted">${r.total} total · ${formatDuration(r.durationMs)} · ${escapeHtml(r.branch)}@${escapeHtml(r.sha || '?')} · ${ago}</span>`,
     `<span class="muted">vs ${escapeHtml(r.baseUrl)}</span>`,
   ].join(' ');
+  renderRunSwitcher();
+}
+
+/**
+ * Renders a small panel showing every run in catalog.runs (oldest+newest).
+ * Each chip links to that run's standalone Playwright HTML report at
+ * /tests/runs/<id>/playwright-report/, so users can dig into any historical
+ * run's video/trace/etc independently of which run is currently 'latest' in
+ * the catalog. The current latest run is marked with a star.
+ */
+function renderRunSwitcher() {
+  const el = document.getElementById('run-switcher');
+  const runs = state.catalog.runs || [];
+  if (runs.length === 0) { el.innerHTML = ''; return; }
+  const latestId = state.catalog.lastRunId;
+  const chips = runs.map(r => {
+    const isLatest = r.id === latestId;
+    const ago = relTime(r.startedAt);
+    const summary = `${r.passed}/${r.total} pass`;
+    const tooltip = `${r.id} · ${ago} · ${r.passed}p ${r.failed}f ${r.skipped}s`;
+    return `<a class="run-chip${isLatest ? ' latest' : ''}" target="_blank" rel="noopener"
+       href="runs/${escapeAttr(r.id)}/playwright-report/index.html"
+       title="${escapeAttr(tooltip)}">
+       ${isLatest ? '★ ' : ''}${escapeHtml(r.id.split('_').slice(0,2).join(' '))}
+       <span class="run-chip-stats">${summary}</span>
+     </a>`;
+  }).join('');
+  el.innerHTML = `<span class="run-switcher-label">Runs:</span> ${chips}`;
 }
 
 function renderStatusFilter() {

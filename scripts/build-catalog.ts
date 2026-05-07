@@ -287,9 +287,22 @@ interface BuildOptions {
   historyPath: string;
   catalogPath: string;
   publicHistoryPath: string | null; // optional pre-existing history.json from host
+  publicCatalogPath: string | null; // optional pre-existing catalog.json from host
   baseUrl: string;
   branch: string;
   sha: string;
+}
+
+function readPriorCatalog(p: string | null): Map<string, CatalogTest> {
+  const out = new Map<string, CatalogTest>();
+  if (!p || !fs.existsSync(p)) return out;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8')) as Catalog;
+    for (const t of parsed.tests || []) out.set(t.id, t);
+  } catch (e) {
+    console.warn(`[build-catalog] could not parse prior catalog at ${p}: ${(e as Error).message}`);
+  }
+  return out;
 }
 
 function readHistory(p: string | null): HistoryFile {
@@ -330,9 +343,22 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
   }
 
   const oldHistory = readHistory(opts.publicHistoryPath ?? opts.historyPath);
+  const priorCatalog = readPriorCatalog(opts.publicCatalogPath ?? null);
+
+  // Compute the surviving run-id set after this run is published. publish.sh
+  // prunes runs/ on the host to RUN_LIMIT (=HISTORY_LIMIT here, 5). Any
+  // latestRun pointer to a run NOT in this set is about to be unreachable, so
+  // we drop it. Pointers into still-extant runs are preserved.
+  const survivingRunIds = new Set<string>(
+    [opts.runId, ...oldHistory.runs.map(r => r.id).filter(id => id !== opts.runId)]
+      .slice(0, HISTORY_LIMIT)
+  );
 
   // Merge: every test from disk → CatalogTest. Tests that ran get latestRun.
+  // Tests that didn't run inherit their last-seen latestRun from the prior
+  // catalog if and only if that runId is still in the rolling window.
   const tests: CatalogTest[] = [];
+  let preservedCount = 0;
   for (const rec of ast) {
     seenIds.add(rec.id);
     const ran = latestById.get(rec.id);
@@ -367,6 +393,17 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
         errorMessage: ran.result.error?.message ?? null,
         errorStack: ran.result.error?.stack ?? null,
       };
+    } else {
+      // Test didn't run this time. Keep the prior latestRun pointer if its
+      // referenced runId is still in the rolling window — its video/trace
+      // are still on disk under runs/<id>/.
+      const prior = priorCatalog.get(rec.id);
+      if (prior?.latestRun && survivingRunIds.has(prior.latestRun.runId)) {
+        latestRun = prior.latestRun;
+        lastStatus = prior.lastStatus;
+        lastDurationMs = prior.lastDurationMs;
+        preservedCount++;
+      }
     }
 
     // History merge: prepend this run's outcome (if any) to prior history.
@@ -457,10 +494,11 @@ function main(): void {
   const historyPath = process.env.HISTORY_JSON || 'history.json';
   const catalogPath = process.env.CATALOG_JSON || 'catalog.json';
   const publicHistoryPath = process.env.PUBLIC_HISTORY_JSON || null;
+  const publicCatalogPath = process.env.PUBLIC_CATALOG_JSON || null;
 
   const { catalog, nextHistory } = buildCatalog({
     runId, reportPath, historyPath, catalogPath,
-    publicHistoryPath, baseUrl, branch, sha,
+    publicHistoryPath, publicCatalogPath, baseUrl, branch, sha,
   });
   fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2));
   fs.writeFileSync(historyPath, JSON.stringify(nextHistory, null, 2));
