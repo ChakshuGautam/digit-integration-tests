@@ -78,7 +78,15 @@ ssh "$HOST_SSH" "
 rsync -avh \
   catalog.json history.json \
   "$HOST_SSH:$HOST_DIR/"
-rsync -avh --delete dashboard/ "$HOST_SSH:$HOST_DIR/"
+# IMPORTANT: --delete on dashboard sync must NOT touch runs/, catalog.json,
+# history.json, or _incoming/. Without these excludes, --delete wipes the
+# entire host directory of everything not in dashboard/.
+rsync -avh --delete \
+  --exclude=runs \
+  --exclude=_incoming \
+  --exclude=catalog.json \
+  --exclude=history.json \
+  dashboard/ "$HOST_SSH:$HOST_DIR/"
 
 # Prune older runs on host to RUN_LIMIT.
 ssh "$HOST_SSH" "
