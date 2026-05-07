@@ -33,6 +33,7 @@ interface CatalogTest {
   file: string;
   line: number;
   tags: string[];
+  description: string | null;
   source: string;
   lastStatus: TestStatus | null;
   lastDurationMs: number | null;
@@ -94,6 +95,7 @@ interface AstTestRecord {
   file: string;          // relative to repo root
   line: number;          // 1-based
   tags: string[];
+  description: string | null;  // hand-written, from annotation.description
   source: string;
   parseError: string | null;
 }
@@ -131,6 +133,7 @@ function collectFromAst(): AstTestRecord[] {
             const title = args[0].getLiteralText();
             const line = sf.getLineAndColumnAtPos(node.getStart()).line;
             const tags = extractTags(node);
+            const description = extractDescription(node);
             const source = node.getText();
             out.push({
               id: `${filePath}:${line}:${title}`,
@@ -139,6 +142,7 @@ function collectFromAst(): AstTestRecord[] {
               file: filePath,
               line,
               tags,
+              description,
               source,
               parseError: null,
             });
@@ -151,6 +155,50 @@ function collectFromAst(): AstTestRecord[] {
     sf.forEachChild(c => walk(c, []));
   }
   return out;
+}
+
+/**
+ * Pull the hand-written annotation.description out of:
+ *   test('title', { annotation: { type: 'description', description: `…` }, tag: [...] }, fn)
+ * Returns null if the annotation isn't present (test not yet documented).
+ * Handles both single-annotation object form and array form.
+ */
+function extractDescription(call: CallExpression): string | null {
+  const args = call.getArguments();
+  if (args.length < 2) return null;
+  const second = args[1];
+  if (!Node.isObjectLiteralExpression(second)) return null;
+  const annotationProp = second.getProperty('annotation');
+  if (!annotationProp || !Node.isPropertyAssignment(annotationProp)) return null;
+  const init = annotationProp.getInitializer();
+  if (!init) return null;
+
+  const readDescriptionFromObject = (obj: Node): string | null => {
+    if (!Node.isObjectLiteralExpression(obj)) return null;
+    const descProp = obj.getProperty('description');
+    if (!descProp || !Node.isPropertyAssignment(descProp)) return null;
+    const descInit = descProp.getInitializer();
+    if (!descInit) return null;
+    // Strip the surrounding quote/backtick. ts-morph's getLiteralText handles
+    // template literals, regular strings, and concatenations cleanly enough
+    // for our case where it's always a single template literal.
+    if (Node.isStringLiteral(descInit) || Node.isNoSubstitutionTemplateLiteral(descInit)) {
+      return descInit.getLiteralText();
+    }
+    // Fallback: strip backticks/quotes manually so we don't lose pure-text
+    // template literals if ts-morph misclassifies.
+    const text = descInit.getText();
+    return text.replace(/^[`'"]|[`'"]$/g, '');
+  };
+
+  if (Node.isObjectLiteralExpression(init)) return readDescriptionFromObject(init);
+  if (Node.isArrayLiteralExpression(init)) {
+    for (const el of init.getElements()) {
+      const d = readDescriptionFromObject(el);
+      if (d) return d;
+    }
+  }
+  return null;
 }
 
 function extractTags(call: CallExpression): string[] {
@@ -335,6 +383,7 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
       file: rec.file,
       line: rec.line,
       tags: rec.tags,
+      description: rec.description,
       source: rec.source,
       lastStatus,
       lastDurationMs,

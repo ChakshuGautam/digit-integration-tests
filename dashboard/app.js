@@ -245,10 +245,15 @@ function renderDetail(id) {
   const reportLink = (lr && lr.runId)
     ? `<a href="runs/${escapeAttr(lr.runId)}/playwright-report/index.html" target="_blank">Open Playwright report</a>`
     : '';
+  const description = t.description
+    ? `<div class="section"><h4>Description</h4><div class="description-body">${descriptionToHtml(t.description)}</div></div>`
+    : `<div class="section"><h4>Description</h4><p class="muted">No description yet — add one to the test as <code>annotation: { type: 'description', description: '…' }</code>.</p></div>`;
+
   detail.innerHTML = `
     <button class="close-btn" id="close-detail" aria-label="Close">×</button>
     <h2>${escapeHtml(t.title)}</h2>
     <div class="describe">${escapeHtml(t.describe)} · ${escapeHtml(t.file)}:${t.line}</div>
+    ${description}
     <div class="section"><h4>Tags</h4>${tagChips}</div>
     <div class="section"><h4>Last 5 runs</h4><div class="dot-row">${dots}</div><div class="history-row">${historyHtml(t.history)}</div></div>
     ${video}
@@ -273,10 +278,11 @@ function renderDetail(id) {
       copyBtn.textContent = 'Copy failed';
     });
   });
-  detail.querySelectorAll('.tag-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const facet = chip.dataset.facet;
-      const value = chip.dataset.value;
+  detail.querySelectorAll('.tag-chip, a.ref-link').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const facet = el.dataset.facet;
+      const value = el.dataset.value;
       if (!facet || !value) return;
       const set = state.filters.facets[facet] ||= new Set();
       set.add(value);
@@ -285,6 +291,50 @@ function renderDetail(id) {
       renderTable();
     });
   });
+}
+
+/**
+ * Render the multi-paragraph annotation.description into HTML.
+ * Format expected from build-catalog (mirrors what authors write):
+ *   <opening paragraph>
+ *
+ *   Steps:
+ *   1. …
+ *   2. …
+ *
+ *   <closing paragraph>
+ *
+ * We split on blank lines, then for each block look for "Steps:" followed by
+ * numbered lines and turn that into an <ol>. Other blocks render as <p>.
+ */
+function descriptionToHtml(text) {
+  const blocks = text.trim().split(/\n{2,}/);
+  return blocks.map(block => {
+    if (/^Steps:\s*$/m.test(block.split('\n')[0])) {
+      const lines = block.split('\n').slice(1);
+      const items = lines
+        .map(l => l.replace(/^\s*\d+\.\s*/, '').trim())
+        .filter(Boolean);
+      return `<p class="steps-heading">Steps:</p><ol class="steps-list">${items.map(s => `<li>${linkifyAndEscape(s)}</li>`).join('')}</ol>`;
+    }
+    return `<p>${linkifyAndEscape(block)}</p>`;
+  }).join('');
+}
+
+/**
+ * HTML-escape and turn CCRS#NNN / PR#NN references into clickable filter chips.
+ * The dashboard already filters by ccrs/pr facets; clicking a reference adds
+ * it to the active filter so you can see all related tests.
+ */
+function linkifyAndEscape(s) {
+  let out = escapeHtml(s);
+  // CCRS#NNN -> filter chip
+  out = out.replace(/\bCCRS#(\d+)\b/g, (_m, num) =>
+    `<a class="ref-link" href="#ccrs/${num}" data-facet="ccrs" data-value="${num}">CCRS#${num}</a>`);
+  // PR #NN or PR#NN
+  out = out.replace(/\bPR\s*#(\d+)\b/g, (_m, num) =>
+    `<a class="ref-link" href="#pr/${num}" data-facet="pr" data-value="${num}">PR#${num}</a>`);
+  return out;
 }
 
 function buildClaudePrompt(t) {
@@ -296,15 +346,18 @@ function buildClaudePrompt(t) {
   const videoLine = lr && lr.videoUrl
     ? `Latest video: ${absoluteUrl(lr.videoUrl)}`
     : 'No video for the latest run.';
+  const intentBlock = t.description
+    ? `\nWhat this test is meant to verify (author's description):\n${t.description}\n`
+    : '';
   return [
     `This Playwright test is at ${t.file}:${t.line}:`,
     '',
     t.source,
-    '',
+    intentBlock,
     `Last run status: ${status}.`,
     videoLine,
     errorBlock,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 function historyHtml(history) {

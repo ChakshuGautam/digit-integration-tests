@@ -14,7 +14,21 @@ test.describe('Employee Create (#458, #460, #471)', () => {
     await loginConfigurator(page);
   });
 
-  test('no Username input field exists (#460)', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('no Username input field exists (#460)', {
+    annotation: {
+      type: 'description',
+      description: `Verifies the configurator's Create Employee form no longer renders a Username text input. HRMS auto-generates the username from the employee code; an editable field caused user confusion and was removed in CCRS#460.
+
+Steps:
+1. Navigate to /configurator/manage/employees/create.
+2. Wait for the form to render (input[name="user.name"] visible).
+3. Assert no input with name="user.userName" exists on the page.
+4. Assert the legacy "Auto-generated from name" help text is also absent.
+
+Catches a regression where the Username field was reintroduced.`,
+    },
+    tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:regression', '@layer:ui', '@persona:admin'],
+  }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/employees/create`, {
       waitUntil: 'networkidle',
       timeout: 30_000,
@@ -32,7 +46,23 @@ test.describe('Employee Create (#458, #460, #471)', () => {
     await expect(page.getByText('Auto-generated from name')).toHaveCount(0);
   });
 
-  test('assignment without dept/designation shows validation error (#458)', { tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:edge-case', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('assignment without dept/designation shows validation error (#458)', {
+    annotation: {
+      type: 'description',
+      description: `Edge case for CCRS#458: when an admin clicks "Add assignment" but submits without choosing a department, the form must render an inline alert and refuse to create — not silently 400 the API.
+
+Steps:
+1. Navigate to /configurator/manage/employees/create.
+2. Wait for input[name="user.name"] to be visible (form rendered).
+3. Click the "Add assignment" button — an empty assignment row appears.
+4. Click "Create" without filling department or designation.
+5. Wait briefly for client-side validation to fire.
+6. Assert a role="alert" with text matching /assignment must have a department/i is visible.
+
+Catches the regression where this validation was missing and the form let users submit a half-filled assignment.`,
+    },
+    tag: ['@area:configurator-manage', '@area:hrms', '@ccrs:458', '@ccrs:460', '@ccrs:471', '@kind:edge-case', '@layer:ui', '@persona:admin'],
+  }, async ({ page }) => {
     await page.goto(`${CONFIGURATOR_BASE}/manage/employees/create`, {
       waitUntil: 'networkidle',
       timeout: 30_000,

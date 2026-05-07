@@ -105,7 +105,24 @@ test.describe('Onboarding — Phase 1: Tenant + Branding', () => {
     await deactivateTenantViaApi(TENANT_CODE);
   });
 
-  test('login → upload → preview → tenant lands in manage list', { tag: ['@area:onboarding', '@kind:regression', '@layer:ui', '@persona:admin'] }, async ({ page }) => {
+  test('login → upload → preview → tenant lands in manage list', {
+    annotation: {
+      type: 'description',
+      description: `End-to-end pure-UI walk through the configurator's onboarding Phase 1 (Tenant + Branding). Drives the wizard the way a real first-time onboarder would — no API shortcuts in the test body. Covers master ticket #21 (gap B).
+
+Steps:
+1. Generate a fresh xlsx fixture with a unique tenant code (ke.pwt<timestamp>).
+2. Open /configurator/login with storageState cleared so the login form renders.
+3. Sign in with ADMIN/eGov@123 — expect redirect to /configurator/phase/1.
+4. On the Phase 1 landing card, click into the upload step.
+5. Choose the generated xlsx via the file picker; wait for the parser to advance to Preview and render the parsed tenantCode.
+6. Click "Upload to DIGIT" — wizard advances to Step 1.2 (branding).
+7. Navigate to /configurator/manage/tenants and assert the new tenant code is visible in the list.
+
+Teardown is API-only because tenants have no UI delete affordance today (TenantList + TenantShow only — see #21). The teardown sets isActive=false via mdms-v2 _update.`,
+    },
+    tag: ['@area:onboarding', '@kind:regression', '@layer:ui', '@persona:admin'],
+  }, async ({ page }) => {
     test.setTimeout(180_000);
 
     // 1. Onboarding-mode login through the configurator login form.
