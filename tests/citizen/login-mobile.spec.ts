@@ -50,7 +50,9 @@ Catches a regression where the citizen login regresses to the hardcoded Indian v
       timeout: 30_000,
     });
 
-    const mobileInput = page.locator('input[name="mobileNumber"]');
+    const mobileInput = page.locator(
+      'input#login-mobile, input[name="mobileNumber"], input[type="tel"]',
+    ).first();
     await mobileInput.waitFor({ state: 'visible', timeout: 20_000 });
 
     // Helper hint must be visible BEFORE the user touches the field —

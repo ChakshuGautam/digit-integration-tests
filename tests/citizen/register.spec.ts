@@ -43,14 +43,17 @@ Tolerant of post-OTP path differences (some configs go straight to /all-services
     });
     await page.waitForTimeout(3000);
 
-    // Mobile entry
-    const mobileInput = page.locator('input[name="mobileNumber"]');
+    // Mobile entry — match current digit-ui (input#login-mobile, no name)
+    // and older variants.
+    const mobileInput = page.locator(
+      'input#login-mobile, input[name="mobileNumber"], input[type="tel"]',
+    ).first();
     await mobileInput.waitFor({ state: 'visible', timeout: 15_000 });
     await mobileInput.click();
     await mobileInput.type(phone, { delay: 30 });
     await page.waitForTimeout(500);
 
-    await page.locator('button:visible').filter({ hasText: /^Next$/i }).first().click();
+    await page.locator('button:visible').filter({ hasText: /^(Continue|Next)$/i }).first().click();
     await page.waitForTimeout(5000);
 
     // OTP screen — 6 single-char inputs

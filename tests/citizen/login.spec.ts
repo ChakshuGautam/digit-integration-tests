@@ -32,7 +32,11 @@ If this fails, every other citizen test will fail downstream — pairs with the 
       timeout: 30_000,
     });
 
-    const mobileInput = page.locator('input[name="mobileNumber"]');
+    // Match current digit-ui (input#login-mobile, type=tel, no name) and
+    // older revisions that still set name="mobileNumber".
+    const mobileInput = page.locator(
+      'input#login-mobile, input[name="mobileNumber"], input[type="tel"]',
+    ).first();
     await mobileInput.waitFor({ state: 'visible', timeout: 20_000 });
     expect(await mobileInput.isVisible()).toBe(true);
   });
