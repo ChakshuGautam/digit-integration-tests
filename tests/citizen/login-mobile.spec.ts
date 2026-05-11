@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 
 import { BASE_URL } from '../utils/env';
+import { getMobileValidationRule, generateInvalidMobile } from '../utils/mdms-mobile';
 
 // Citizen login is public and must render fresh. Drop the admin
 // storageState so we don't land on the authenticated citizen home.
@@ -45,6 +46,14 @@ Steps:
 Catches a regression where the citizen login regresses to the hardcoded Indian validator.`,
     },
     tag: ['@area:auth', '@ccrs:429', '@kind:edge-case', '@layer:ui', '@persona:citizen'] }, async ({ page }) => {
+    // Read the live MDMS rule for this tenant so the test is
+    // tenant-agnostic. The helper hint, expected length, and the error
+    // copy are all derived from MDMS — hard-coding them here re-creates
+    // the regression CCRS#429 was filed to prevent.
+    const tenant = process.env.DIGIT_TENANT || 'ke.nairobi';
+    const rule = await getMobileValidationRule(tenant);
+    const tooShort = generateInvalidMobile(rule, 'short');
+
     await page.goto(`${BASE_URL}/digit-ui/citizen/login`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
@@ -56,34 +65,46 @@ Catches a regression where the citizen login regresses to the hardcoded Indian v
     await mobileInput.waitFor({ state: 'visible', timeout: 20_000 });
 
     // Helper hint must be visible BEFORE the user touches the field —
-    // that's the whole point of the fix. Accept both the raw template
-    // ("N-digit") and the interpolated form ("10-digit") because MDMS
-    // may or may not have the substitution wired yet.
-    const helper = page.getByText(/10-digit|N-digit mobile number/i).first();
+    // that's the whole point of the fix. Build the regex from the
+    // MDMS minLength so the assertion follows whatever the tenant is
+    // configured for: "9-digit" on Kenya, "10-digit" on India, etc.
+    const lengthHelperRe = new RegExp(`${rule.minLength}-digit|N-digit mobile number`, 'i');
+    const helper = page.getByText(lengthHelperRe).first();
     await expect(helper).toBeVisible({ timeout: 10_000 });
 
-    // Type a number that's too short to satisfy either the Kenya or
-    // legacy Indian rule, then proceed so the validator fires.
+    // Type the too-short number and blur so the validator fires
+    // inline. The current digit-ui keeps the Continue submit DISABLED
+    // until the input satisfies the rule — so we never click submit on
+    // the bad number; the inline error/helper is what we assert on.
     await mobileInput.click();
-    await mobileInput.type('12345', { delay: 30 });
-    await page.locator('button:visible')
-      .filter({ hasText: /NEXT|Next|CS_COMMONS_NEXT/ })
-      .first()
-      .click();
+    await mobileInput.type(tooShort, { delay: 30 });
+    await mobileInput.blur();
 
-    // The inline error lives in the MDMS `errorMessage` field — we
-    // don't hardcode the exact copy, only that it asserts "valid" and
-    // carries no India-specific vocabulary (the regression we're
-    // guarding against).
-    const errorCandidate = page
-      .locator('body')
-      .getByText(/valid/i)
-      .first();
+    // The Continue button must remain disabled — that's the wizard
+    // refusing a known-bad number.
+    const submit = page.locator('button:visible')
+      .filter({ hasText: /Continue|NEXT|Next|CS_COMMONS_NEXT/ }).first();
+    await expect(submit).toBeDisabled({ timeout: 5_000 });
+
+    // The inline error must echo the MDMS rule. The full errorMessage
+    // may be rendered with light cosmetic differences (e.g. ":" vs "(",
+    // truncated "Please enter a " prefix when wrapped in a Trans tag).
+    // Match on the distinctive core: the minLength digit-count + the
+    // allowedStartingDigits phrasing. Both come straight from MDMS, so
+    // this stays tenant-agnostic.
+    const digits = String(rule.minLength);
+    const starters = rule.allowedStartingDigits?.join('|') ?? '\\d';
+    const coreRe = new RegExp(`${digits}[- ]?digit.*(starting with).*(${starters})`, 'i');
+    const errorCandidate = page.locator('body').getByText(coreRe).first();
     await expect(errorCandidate).toBeVisible({ timeout: 10_000 });
 
-    const errorText = (await errorCandidate.innerText()).toLowerCase();
-    expect(errorText).not.toContain('india');
-    expect(errorText).not.toContain('indian');
-    expect(errorText).not.toContain('+91');
+    // Regression guard: even if the page mounts a stale legacy rule,
+    // the error must not surface India-specific vocabulary on a Kenya
+    // tenant (the original CCRS#429 symptom).
+    if (rule.prefix && !rule.prefix.includes('91')) {
+      const errorText = (await errorCandidate.innerText()).toLowerCase();
+      expect(errorText).not.toContain('india');
+      expect(errorText).not.toContain('+91');
+    }
   });
 });
