@@ -342,9 +342,16 @@ function buildCatalog(opts: BuildOptions): { catalog: Catalog; nextHistory: Hist
   const seenIds = new Set<string>();
 
   // Build per-test latestRun map keyed by id.
+  // Playwright's JSON reporter emits spec.file relative to config.rootDir
+  // (= testDir, e.g. `<repo>/tests`), so it lacks the `tests/` prefix that
+  // the AST ids carry. Older versions emitted absolute paths. Resolve against
+  // rootDir first so both shapes normalize to the same cwd-relative id the
+  // AST produces — otherwise nothing matches and every lastStatus is null.
+  const reportRootDir = report.config?.rootDir || process.cwd();
   const latestById = new Map<string, { test: PwTest; result: PwResult; spec: PwSpec; describePath: string[] }>();
   for (const { spec, describePath } of flat) {
-    const file = path.relative(process.cwd(), spec.file).replace(/\\/g, '/');
+    const absFile = path.isAbsolute(spec.file) ? spec.file : path.resolve(reportRootDir, spec.file);
+    const file = path.relative(process.cwd(), absFile).replace(/\\/g, '/');
     const id = `${file}:${spec.line}:${spec.title}`;
     const t = (spec.tests || [])[0];
     if (!t) continue;
