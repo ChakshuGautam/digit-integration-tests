@@ -49,6 +49,29 @@ export const TENANT_LABEL = process.env.TENANT_LABEL || 'Bomet County';
 /** Known complaint that is assigned to EMPLOYEE_USER on the deployment. */
 export const ASSIGNED_COMPLAINT_ID = process.env.ASSIGNED_COMPLAINT_ID || 'PG-PGR-2026-04-13-000848';
 
+// ── Keycloak SSO config ────────────────────────────────────────────────────
+// Read by tests/keycloak/*.spec.ts. Each spec self-skips when the realm's
+// OIDC discovery endpoint isn't reachable (deployments without KC enabled).
+export const KC_REALM = process.env.KC_REALM || ROOT_TENANT;
+export const KC_CLIENT_ID = process.env.KC_CLIENT_ID || 'digit-ui';
+export const KC_BASE = process.env.KC_BASE || `${BASE_URL}/auth`;
+export const TOKEN_EXCHANGE_BASE = process.env.TOKEN_EXCHANGE_BASE || `${BASE_URL}/token-exchange`;
+export const CITIZEN_BASENAME = process.env.CITIZEN_BASENAME || '/citizen';
+
+/**
+ * Decode a JWT payload without verifying its signature — for assertion only.
+ * Tests should also re-verify any claim that load-bears on a behavior (the
+ * overlay re-validates signatures on every API call, so trusting the
+ * payload for shape assertions is fine).
+ */
+export function decodeJwtPayload(jwt: string): Record<string, any> {
+  const part = jwt.split('.')[1];
+  if (!part) return {};
+  const pad = part.length % 4 === 2 ? '==' : part.length % 4 === 3 ? '=' : '';
+  const b64 = (part + pad).replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+}
+
 /** Generate a unique citizen phone number valid for the deployment's mobile validation */
 export function generateCitizenPhone(): string {
   // Prefix + remaining digits from timestamp to ensure uniqueness
