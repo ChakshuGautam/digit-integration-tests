@@ -26,6 +26,14 @@ export const DEFAULT_PASSWORD = 'eGov@123';
 export const EMPLOYEE_USER = process.env.EMPLOYEE_USER || 'BOMET_LME';
 export const EMPLOYEE_PASS = process.env.EMPLOYEE_PASSWORD || DEFAULT_PASSWORD;
 
+/**
+ * GRO employee — the role the PGR workflow requires for the ASSIGN action
+ * (PENDINGFORASSIGNMENT → PENDINGATLME). ADMIN/SUPERUSER is NOT authorized for
+ * ASSIGN, so lifecycle tests must drive that transition as a GRO.
+ */
+export const GRO_USER = process.env.GRO_USER || 'KE_GRO';
+export const GRO_PASS = process.env.GRO_PASSWORD || DEFAULT_PASSWORD;
+
 /** Ward-scoped CSR for boundary jurisdiction-filter regression. */
 export const WARD_CSR_USER = process.env.WARD_CSR_USER || 'BOMET_CSR_CHESOEN_1780282462';
 export const WARD_CSR_PASS = process.env.WARD_CSR_PASSWORD || DEFAULT_PASSWORD;

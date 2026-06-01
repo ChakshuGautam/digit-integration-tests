@@ -16,6 +16,7 @@ import {
   BASE_URL, TENANT, ROOT_TENANT,
   ADMIN_USER, ADMIN_PASS, FIXED_OTP,
   DEFAULT_PASSWORD,
+  GRO_USER, GRO_PASS, EMPLOYEE_USER, EMPLOYEE_PASS,
   SERVICE_CODE, LOCALITY_CODE,
   generateCitizenPhone,
 } from '../utils/env';
@@ -103,6 +104,13 @@ async function registerCitizen(phone: string): Promise<{ token: string; userInfo
 test.describe.serial('PGR lifecycle — API only', () => {
   let adminToken: string;
   let adminUserInfo: Record<string, unknown>;
+  // PGR workflow gates actions by role: ASSIGN needs GRO, RESOLVE needs PGR_LME.
+  // ADMIN/SUPERUSER is authorized for neither, so each transition is driven by
+  // the persona the deployment actually requires.
+  let groToken: string;
+  let groUserInfo: Record<string, unknown>;
+  let lmeToken: string;
+  let lmeUserInfo: Record<string, unknown>;
   let citizenToken: string;
   let citizenUserInfo: Record<string, unknown>;
   let serviceRequestId: string;
@@ -129,6 +137,17 @@ First link in a serial chain — every later step skips if this fails.`,
     expect(adminResp.access_token).toBeTruthy();
     adminToken = adminResp.access_token;
     adminUserInfo = adminResp.UserRequest as Record<string, unknown>;
+
+    // GRO performs ASSIGN; PGR_LME performs RESOLVE.
+    const groResp = await getDigitToken({ tenant: ROOT_TENANT, username: GRO_USER, password: GRO_PASS });
+    expect(groResp.access_token, `GRO user ${GRO_USER} must log in`).toBeTruthy();
+    groToken = groResp.access_token;
+    groUserInfo = groResp.UserRequest as Record<string, unknown>;
+
+    const lmeResp = await getDigitToken({ tenant: ROOT_TENANT, username: EMPLOYEE_USER, password: EMPLOYEE_PASS });
+    expect(lmeResp.access_token, `LME user ${EMPLOYEE_USER} must log in`).toBeTruthy();
+    lmeToken = lmeResp.access_token;
+    lmeUserInfo = lmeResp.UserRequest as Record<string, unknown>;
 
     const citizenResp = await registerCitizen(CITIZEN_PHONE);
     expect(citizenResp.token).toBeTruthy();
@@ -194,19 +213,20 @@ Steps:
 Catches a regression where _update silently rejects payloads missing source/id (returns INVALID_SOURCE).`,
     },
     tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
-    const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
+    const fullService = await fetchComplaint(groToken, groUserInfo, serviceRequestId);
 
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${groToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        RequestInfo: { apiId: 'Rainmaker', authToken: groToken, userInfo: groUserInfo },
         service: fullService,
-        workflow: { action: 'ASSIGN', comments: 'Assigned by API E2E test' },
+        // GRO assigns the complaint to the PGR_LME who will resolve it.
+        workflow: { action: 'ASSIGN', assignes: [lmeUserInfo.uuid], comments: 'Assigned by API E2E test' },
       }),
     });
 
-    expect(resp.ok).toBe(true);
+    expect(resp.ok, `ASSIGN as ${GRO_USER} (GRO) should be authorized`).toBe(true);
     const data: any = await resp.json();
     expect(data.ServiceWrappers[0].service.applicationStatus).toBe('PENDINGATLME');
     console.log(`${serviceRequestId} → PENDINGATLME`);
@@ -226,19 +246,19 @@ Steps:
 This is the second-to-last step in the lifecycle; the citizen-verify step that follows confirms the citizen-side search reflects the same state.`,
     },
     tag: ['@area:pgr', '@kind:lifecycle', '@layer:api', '@persona:cross'] }, async () => {
-    const fullService = await fetchComplaint(adminToken, adminUserInfo, serviceRequestId);
+    const fullService = await fetchComplaint(lmeToken, lmeUserInfo, serviceRequestId);
 
     const resp = await fetch(`${BASE_URL}/pgr-services/v2/request/_update?tenantId=${TENANT}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${lmeToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        RequestInfo: { apiId: 'Rainmaker', authToken: adminToken, userInfo: adminUserInfo },
+        RequestInfo: { apiId: 'Rainmaker', authToken: lmeToken, userInfo: lmeUserInfo },
         service: fullService,
         workflow: { action: 'RESOLVE', comments: 'Resolved by API E2E test' },
       }),
     });
 
-    expect(resp.ok).toBe(true);
+    expect(resp.ok, `RESOLVE as ${EMPLOYEE_USER} (PGR_LME) should be authorized`).toBe(true);
     const data: any = await resp.json();
     expect(data.ServiceWrappers[0].service.applicationStatus).toBe('RESOLVED');
     console.log(`${serviceRequestId} → RESOLVED`);
