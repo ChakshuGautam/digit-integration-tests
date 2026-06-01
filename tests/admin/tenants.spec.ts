@@ -28,6 +28,9 @@ import { testCode } from '../utils/manage/codes';
 import { cleanupMdms } from '../utils/manage/teardown';
 
 const TENANT_CODE = process.env.TENANT_CODE || 'ke';
+// A real city tenant known to exist in the list. naipepea → ke.nairobi,
+// bomet → ke.bomet. Parameterized so the search test isn't pinned to Nairobi.
+const CITY_TENANT = process.env.CITY_TENANT || 'ke.nairobi';
 const SCHEMA = 'tenant.tenants';
 const LIST_PATH = '/configurator/manage/tenants';
 
@@ -106,11 +109,11 @@ Confirms the search input feeds into the data provider's filter and the grid re-
 
     const search = page.getByPlaceholder(/search/i).first();
     await expect(search).toBeVisible();
-    await search.fill('ke.nairobi');
+    await search.fill(CITY_TENANT);
     await page.waitForLoadState('networkidle').catch(() => {});
 
     await expect(
-      page.getByRole('row').filter({ hasText: 'ke.nairobi' }).first(),
+      page.getByRole('row').filter({ hasText: CITY_TENANT }).first(),
     ).toBeVisible();
 
     // A nonsense code should drop us to empty-state (zero data rows).

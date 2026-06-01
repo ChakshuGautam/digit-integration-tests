@@ -49,6 +49,13 @@ export const TENANT_LABEL = process.env.TENANT_LABEL || 'Bomet County';
 /** Known complaint that is assigned to EMPLOYEE_USER on the deployment. */
 export const ASSIGNED_COMPLAINT_ID = process.env.ASSIGNED_COMPLAINT_ID || 'PG-PGR-2026-04-13-000848';
 
+/**
+ * A real CITY tenant code (not the state root) known to exist in the tenants
+ * list — used by the configurator tenants search test. naipepea has
+ * ke.nairobi; bomet has ke.bomet.
+ */
+export const CITY_TENANT = process.env.CITY_TENANT || 'ke.nairobi';
+
 // ── Keycloak SSO config ────────────────────────────────────────────────────
 // Read by tests/keycloak/*.spec.ts. Each spec self-skips when the realm's
 // OIDC discovery endpoint isn't reachable (deployments without KC enabled).
