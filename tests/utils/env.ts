@@ -25,6 +25,18 @@ export const KC_BASE = process.env.KC_BASE || `${BASE_URL}/auth`;
 export const TOKEN_EXCHANGE_BASE = process.env.TOKEN_EXCHANGE_BASE || `${BASE_URL}/token-exchange`;
 export const CITIZEN_BASENAME = process.env.CITIZEN_BASENAME || '/citizen';
 
+// ── Platform-admin (KC master realm) config ─────────────────────────────────
+// Used by tests/keycloak/kc-platform-admin.spec.ts. The spec self-skips when
+// KC_MASTER_ADMIN_PASSWORD isn't provided — the master admin password is
+// sensitive and lives in OpenBao on the production servers, so CI runs that
+// don't have it (or runs against deployments without the platform-admin
+// overlay routes) simply skip the spec rather than fail.
+export const KC_MASTER_REALM = process.env.KC_MASTER_REALM || 'master';
+export const KC_MASTER_ADMIN_USER = process.env.KC_MASTER_ADMIN_USER || 'admin';
+export const KC_MASTER_ADMIN_PASS = process.env.KC_MASTER_ADMIN_PASSWORD || '';
+export const PLATFORM_ADMIN_BASE =
+  process.env.PLATFORM_ADMIN_BASE || `${TOKEN_EXCHANGE_BASE}/platform-admin`;
+
 /**
  * Decode a JWT payload without verifying its signature — for assertion only.
  * Tests should also re-verify any claim that load-bears on a behavior (the
