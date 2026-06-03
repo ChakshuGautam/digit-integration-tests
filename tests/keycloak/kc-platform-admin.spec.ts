@@ -851,4 +851,89 @@ test.describe('egov-enc-service — _generatekey endpoint', () => {
     const loginBody = await login.json();
     expect(loginBody.access_token).toBeTruthy();
   });
+
+  test('GEN: tenant_bootstrap for a brand-new root auto-provisions the enc key (no explicit _generatekey)', async ({ request }) => {
+    test.skip(
+      !KC_MASTER_ADMIN_PASS,
+      'KC_MASTER_ADMIN_PASSWORD not set — skipping auto-_generatekey chain test.',
+    );
+
+    // Brand-new state-root tenant (no dot, never seen before). Before the
+    // overlay auto-_generatekey wire-in, this would hit "Tenant Id not
+    // found" at the admin-user step. The bootstrap response would come
+    // back with adminUser.provisioned=false even though schemas etc.
+    // copied fine. After the wire-in, the overlay calls _generatekey
+    // for the target_tenant BEFORE forwarding to MCP, so the admin
+    // user create finds a key and succeeds end-to-end.
+    //
+    // This is the load-bearing test for the /admin/bootstrap wizard's
+    // happy path on a fresh root — what the demo flow drives.
+    const stamp = Date.now().toString(36).slice(-5).replace(/[^a-z]/g, 'a');
+    const NEWROOT = `pwauto${stamp}xyz`;
+
+    const tokResp = await request.post(
+      `${KC_BASE}/realms/${encodeURIComponent(KC_MASTER_REALM)}/protocol/openid-connect/token`,
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        data: new URLSearchParams({
+          grant_type: 'password',
+          client_id: 'admin-cli',
+          username: KC_MASTER_ADMIN_USER,
+          password: KC_MASTER_ADMIN_PASS,
+        }).toString(),
+      },
+    );
+    const godTok = (await tokResp.json()).access_token;
+
+    // Confirm pre-state: this tenant has no key in enc-service. Call
+    // _generatekey ourselves to ensure NO key exists, then immediately
+    // bootstrap WITHOUT calling _generatekey explicitly — the overlay
+    // must inject it.
+    const preKey = await request.post(
+      `${ENC_SERVICE_BASE}/crypto/v1/_generatekey`,
+      { data: { tenantId: NEWROOT } },
+    );
+    expect(preKey.ok()).toBeTruthy();
+    expect((await preKey.json()).created, 'pre-state: tenant must be fresh').toBe(true);
+
+    // Now bootstrap on a (different) fresh tenant — overlay must
+    // auto-provision the key. Use a separate tenant id so the previous
+    // _generatekey doesn't satisfy this test by accident. Letters-only
+    // tenant name dodges MCP's pre-existing admin-username regex that
+    // rejects digits (`must match "^[a-zA-Z. ]*$"`) — that's a separate
+    // bug tracked elsewhere; we're testing the auto-_generatekey wire-in
+    // here, not the unrelated regex.
+    const stamp2 = Date.now().toString(36).slice(-5).replace(/[^a-z]/g, 'a');
+    const NEWROOT2 = `pwauto${stamp2}qwe`;
+    const bs = await request.post(
+      `${PLATFORM_ADMIN_BASE}/v1/tenant/bootstrap`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${godTok}`,
+        },
+        data: { target_tenant: NEWROOT2, source_tenant: ROOT_TENANT },
+        timeout: 120_000,
+      },
+    );
+    expect(bs.ok(), `tenant_bootstrap failed: ${bs.status()}`).toBeTruthy();
+    const bsBody = await bs.json();
+    expect(
+      bsBody.adminUser?.provisioned,
+      `admin user NOT provisioned — auto-_generatekey didn't fire OR enc-service rejected. ` +
+        `error=${bsBody.adminUser?.error}`,
+    ).toBe(true);
+
+    // Sanity: confirm enc-service now reports the key exists (created=false
+    // on a re-issue means it was already generated).
+    const postKey = await request.post(
+      `${ENC_SERVICE_BASE}/crypto/v1/_generatekey`,
+      { data: { tenantId: NEWROOT2 } },
+    );
+    expect(postKey.ok()).toBeTruthy();
+    expect(
+      (await postKey.json()).created,
+      `expected created=false (key auto-provisioned by overlay during bootstrap)`,
+    ).toBe(false);
+  });
 });
