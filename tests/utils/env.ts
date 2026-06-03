@@ -37,6 +37,12 @@ export const KC_MASTER_ADMIN_PASS = process.env.KC_MASTER_ADMIN_PASSWORD || '';
 export const PLATFORM_ADMIN_BASE =
   process.env.PLATFORM_ADMIN_BASE || `${TOKEN_EXCHANGE_BASE}/platform-admin`;
 
+// Public path to egov-enc-service via Kong. The /crypto/v1/_generatekey
+// endpoint (Digit-Core #1354) is exercised by the platform-admin spec to
+// validate the new-state-root provisioning chain end-to-end.
+export const ENC_SERVICE_BASE =
+  process.env.ENC_SERVICE_BASE || `${BASE_URL}/egov-enc-service`;
+
 /**
  * Decode a JWT payload without verifying its signature — for assertion only.
  * Tests should also re-verify any claim that load-bears on a behavior (the

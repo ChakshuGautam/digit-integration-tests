@@ -55,7 +55,10 @@ import {
   KC_MASTER_ADMIN_USER,
   KC_MASTER_ADMIN_PASS,
   PLATFORM_ADMIN_BASE,
+  ENC_SERVICE_BASE,
   ROOT_TENANT,
+  ADMIN_USER,
+  ADMIN_PASS,
   decodeJwtPayload,
   generateCitizenPhone,
   FIXED_OTP,
@@ -400,5 +403,194 @@ test.describe('Platform-admin gateway — API contract', () => {
     expect(createResp.status(), 'scoped admin must NOT create more scoped admins').toBe(403);
     const createBody = await createResp.json();
     expect(createBody.message).toMatch(/god-mode/i);
+  });
+});
+
+/**
+ * egov-enc-service — POST /crypto/v1/_generatekey
+ *
+ * Validates the on-demand key-provisioning endpoint from Digit-Core #1354.
+ * Without it, the first encrypt for a brand-new state root (not under any
+ * existing root's tenant.tenants) throws "Tenant Id not found" and breaks
+ * the platform-admin tenant_bootstrap chain at the admin-user step.
+ *
+ * Self-skips if the endpoint isn't deployed (404).
+ *
+ * Covers (4 tests):
+ *   1. Fresh tenant            → 200 { created: true,  keyId: <int> }
+ *   2. Re-issue (idempotent)   → 200 { created: false, keyId: <same> }
+ *   3. Missing tenantId        → 4xx (validation)
+ *   4. END-TO-END chain        → _generatekey + tenant_bootstrap + login
+ *                                proves brand-new roots now provision admins
+ *                                cleanly (this was the user-visible bug in
+ *                                CCRS #622).
+ */
+test.describe('egov-enc-service — _generatekey endpoint', () => {
+  const ENDPOINT = `${ENC_SERVICE_BASE}/crypto/v1/_generatekey`;
+  let createdTenants: string[] = [];
+
+  test.beforeAll(async () => {
+    const probe = await playwrightRequest.newContext({ timeout: 8000 });
+    try {
+      // Probe with an obviously-bad body — any response that isn't 404
+      // means the route exists. We can't probe with a valid request
+      // because that would create a key as a side effect.
+      const r = await probe.post(ENDPOINT, { data: {} });
+      test.skip(
+        r.status() === 404,
+        `egov-enc-service /_generatekey not deployed at ${ENDPOINT} (got 404). ` +
+          `Update egov-enc-service to an image that includes Digit-Core #1354.`,
+      );
+    } finally {
+      await probe.dispose();
+    }
+  });
+
+  // We don't delete the generated keys in teardown — enc-service has no
+  // delete-key API (rotateKey only deactivates, leaving the row), and the
+  // generated keys are scoped to test-prefixed tenant ids that don't
+  // collide with real tenants. Leaving them is the same behavior as
+  // tenant_bootstrap's bootstrapped tenants (which we also leave in MDMS).
+
+  test('GEN: fresh tenant → 200 with created=true and a keyId', async ({ request }) => {
+    const tenantId = `pwgenk${Date.now().toString().slice(-7)}a`;
+    createdTenants.push(tenantId);
+
+    const resp = await request.post(ENDPOINT, { data: { tenantId } });
+    expect(resp.ok(), `expected 200: ${resp.status()} ${await resp.text()}`).toBeTruthy();
+    const body = await resp.json();
+    expect(body.tenantId).toBe(tenantId);
+    expect(body.created).toBe(true);
+    // keyId is the internal Java counter; pin only that it's a number.
+    // Operators reading the JSON correlate this with downstream encrypts.
+    expect(typeof body.keyId).toBe('number');
+    expect(body.keyId).toBeGreaterThan(0);
+  });
+
+  test('GEN: idempotent — re-issue returns existing keyId with created=false', async ({ request }) => {
+    const tenantId = `pwgenk${Date.now().toString().slice(-7)}b`;
+    createdTenants.push(tenantId);
+
+    const first = await request.post(ENDPOINT, { data: { tenantId } });
+    expect(first.ok()).toBeTruthy();
+    const firstBody = await first.json();
+    expect(firstBody.created).toBe(true);
+    const firstKeyId = firstBody.keyId;
+
+    // Re-issue should be a no-op — same key, no rotation.
+    const second = await request.post(ENDPOINT, { data: { tenantId } });
+    expect(second.ok()).toBeTruthy();
+    const secondBody = await second.json();
+    expect(secondBody.tenantId).toBe(tenantId);
+    expect(secondBody.created, 'second call must NOT rotate').toBe(false);
+    expect(
+      secondBody.keyId,
+      `keyId must remain stable across idempotent calls (was ${firstKeyId})`,
+    ).toBe(firstKeyId);
+  });
+
+  test('GEN: missing tenantId → 4xx (validation)', async ({ request }) => {
+    const resp = await request.post(ENDPOINT, { data: {} });
+    // 400 from @Valid; some shapes also return 500 from CustomException.
+    // Either way, the request must NOT succeed silently.
+    expect([400, 422, 500]).toContain(resp.status());
+    if (resp.status() !== 200) return; // not OK is what we want
+  });
+
+  test('GEN: end-to-end chain — _generatekey + tenant_bootstrap + login (CCRS #622)', async ({ request }) => {
+    // Self-skip when the master admin password isn't available — without
+    // it we can't drive tenant_bootstrap. The endpoint-only tests above
+    // still ran; this one just doesn't add coverage for the chain.
+    test.skip(
+      !KC_MASTER_ADMIN_PASS,
+      'KC_MASTER_ADMIN_PASSWORD not set — skipping chain test.',
+    );
+    // Self-skip when the platform-admin overlay isn't deployed (same
+    // probe as the platform-admin describe block).
+    const probe = await playwrightRequest.newContext({ timeout: 5000 });
+    try {
+      const r = await probe.get(`${PLATFORM_ADMIN_BASE}/v1/version`);
+      test.skip(r.status() === 404, 'Platform-admin gateway not deployed.');
+    } finally {
+      await probe.dispose();
+    }
+
+    // Use a brand-new ROOT tenant id (no dot — a state-level root, not a
+    // sub-tenant). This is the case that breaks WITHOUT _generatekey:
+    // enc-service's MDMS-driven discovery doesn't see it, so the first
+    // encrypt fails. Naming: alpha-only to dodge the unrelated MCP
+    // username-regex bug that rejects digits.
+    const stamp = Date.now().toString(36).slice(-5).replace(/[^a-z]/g, 'a');
+    const NEWROOT = `pwgen${stamp}xyz`;
+    createdTenants.push(NEWROOT);
+
+    // Step 1: provision the key BEFORE any encrypt happens
+    const gen = await request.post(ENDPOINT, { data: { tenantId: NEWROOT } });
+    expect(gen.ok(), `_generatekey failed: ${gen.status()}`).toBeTruthy();
+    const genBody = await gen.json();
+    expect(genBody.created).toBe(true);
+
+    // Step 2: god admin runs tenant_bootstrap via the platform-admin gateway
+    const tokResp = await request.post(
+      `${KC_BASE}/realms/${encodeURIComponent(KC_MASTER_REALM)}/protocol/openid-connect/token`,
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        data: new URLSearchParams({
+          grant_type: 'password',
+          client_id: 'admin-cli',
+          username: KC_MASTER_ADMIN_USER,
+          password: KC_MASTER_ADMIN_PASS,
+        }).toString(),
+      },
+    );
+    expect(tokResp.ok()).toBeTruthy();
+    const godTok = (await tokResp.json()).access_token;
+
+    const bs = await request.post(
+      `${PLATFORM_ADMIN_BASE}/v1/tenant/bootstrap`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${godTok}`,
+        },
+        data: { target_tenant: NEWROOT, source_tenant: ROOT_TENANT },
+        timeout: 120_000, // bootstrap copies ~5000 localizations + schemas
+      },
+    );
+    expect(bs.ok(), `tenant_bootstrap failed: ${bs.status()}`).toBeTruthy();
+    const bsBody = await bs.json();
+    expect(
+      bsBody.adminUser?.provisioned,
+      `admin user not provisioned — encryption path likely still broken. error=${bsBody.adminUser?.error}`,
+    ).toBe(true);
+    expect(bsBody.adminUser?.username).toBeTruthy();
+
+    // Step 3: login as the freshly-provisioned admin against the NEW root
+    // tenant. This is the assertion that proves the encryption chain
+    // closed: the username was encrypted with NEWROOT's key on create,
+    // and the same key is used for lookup on login. Mismatch (the #622
+    // bug) would 401 here.
+    const adminUsername = bsBody.adminUser.username;
+    const adminPassword = bsBody.adminUser.password || ADMIN_PASS;
+    const login = await request.post(`${BASE_URL}/user/oauth/token`, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Basic ZWdvdi11c2VyLWNsaWVudDo=', // egov-user-client:
+      },
+      data: new URLSearchParams({
+        grant_type: 'password',
+        username: adminUsername,
+        password: adminPassword,
+        tenantId: NEWROOT,
+        userType: 'EMPLOYEE',
+        scope: 'read',
+      }).toString(),
+    });
+    expect(
+      login.ok(),
+      `login as new admin failed: ${login.status()} ${await login.text()}`,
+    ).toBeTruthy();
+    const loginBody = await login.json();
+    expect(loginBody.access_token).toBeTruthy();
   });
 });
