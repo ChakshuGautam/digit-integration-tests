@@ -407,6 +407,264 @@ test.describe('Platform-admin gateway — API contract', () => {
 });
 
 /**
+ * Email-invite flow for tenant admins
+ *
+ * Covers the four shapes the SPA's /admin/dashboard relies on:
+ *   1. _invite is god-only (scoped admins can't self-replicate via invites either)
+ *   2. _invite body validation — missing tenantId / email / bad email shape → 400
+ *   3. _invite happy path — creates a KC user with the right attributes:
+ *        - username = email
+ *        - email = invitee email
+ *        - emailVerified = false
+ *        - requiredActions = ["UPDATE_PASSWORD"]
+ *        - has bootstrap:<tenantId> realm role
+ *      Asserts via the KC admin REST API directly, so the test is meaningful
+ *      even when SMTP is misconfigured (inviteSent=false) — the user + role
+ *      assignment is the load-bearing state, not whether SMTP succeeded.
+ *   4. GET /scoped-admins returns the freshly-invited user with the
+ *      "Pending invite" shape (requiredActions contains UPDATE_PASSWORD).
+ *
+ * Note on SMTP: this spec INTENTIONALLY does not require SMTP to be live.
+ * A test invite to a real address would either flake (no SMTP) or spam
+ * the operator's inbox on every CI run. Validating the KC-side user shape
+ * is the contract that matters; SMTP delivery is a deployment concern,
+ * not an API contract concern.
+ */
+test.describe('Platform-admin _invite — email-driven scoped admin onboarding', () => {
+  let invitedUsername = '';
+  let invitedTenant = '';
+
+  test.beforeAll(async () => {
+    test.skip(
+      !KC_MASTER_ADMIN_PASS,
+      'KC_MASTER_ADMIN_PASSWORD not set — skipping invite spec.',
+    );
+    // Probe the route exists (overlay deployed with invite endpoint)
+    const probe = await playwrightRequest.newContext({ timeout: 8000 });
+    try {
+      // Hit with no auth — expect 401 (route exists) not 404 (route missing).
+      const r = await probe.post(`${PLATFORM_ADMIN_BASE}/scoped-admins/_invite`, {
+        data: {},
+      });
+      test.skip(
+        r.status() === 404,
+        `_invite endpoint not deployed at ${PLATFORM_ADMIN_BASE}/scoped-admins/_invite. ` +
+          `Update token-exchange-svc to a build that includes the invite flow.`,
+      );
+    } finally {
+      await probe.dispose();
+    }
+  });
+
+  test.afterAll(async () => {
+    // Tear down the invited KC user so the spec stays idempotent across runs.
+    if (!invitedUsername || !KC_MASTER_ADMIN_PASS) return;
+    const ctx = await playwrightRequest.newContext({ timeout: 15_000 });
+    try {
+      const godTok = await mintMasterJwt(ctx);
+      const lookup = await ctx.get(
+        `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users?username=${encodeURIComponent(invitedUsername)}&exact=true`,
+        { headers: { Authorization: `Bearer ${godTok}` } },
+      );
+      if (!lookup.ok()) return;
+      const users = await lookup.json();
+      if (users[0]?.id) {
+        await ctx.delete(
+          `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users/${users[0].id}`,
+          { headers: { Authorization: `Bearer ${godTok}` } },
+        );
+      }
+    } finally {
+      await ctx.dispose();
+    }
+  });
+
+  test('INVITE: god gate — scoped admin cannot send invites', async ({ request }) => {
+    // Re-use the scoped admin created by the earlier describe-block. If
+    // that block didn't run (test order isolation), we mint one inline.
+    let scopedTok: string;
+    const provisionalTenant = `${ROOT_TENANT}.pwinv${Date.now().toString().slice(-7)}a`;
+    const godTok = await mintMasterJwt(request);
+    const cred = await request
+      .post(`${PLATFORM_ADMIN_BASE}/scoped-admins/_create`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${godTok}` },
+        data: { tenantId: provisionalTenant },
+      })
+      .then((r) => r.json());
+    scopedTok = await mintScopedJwt(request, cred.username, cred.password);
+
+    try {
+      const resp = await request.post(
+        `${PLATFORM_ADMIN_BASE}/scoped-admins/_invite`,
+        {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scopedTok}` },
+          data: { email: 'evil@example.com', tenantId: 'ke.elsewhere' },
+        },
+      );
+      expect(resp.status(), 'scoped admin must NOT invite others').toBe(403);
+      const body = await resp.json();
+      expect(body.message).toMatch(/god-mode/i);
+    } finally {
+      // Cleanup the provisional scoped admin to keep the realm tidy.
+      const lookup = await request.get(
+        `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users?username=${encodeURIComponent(cred.username)}&exact=true`,
+        { headers: { Authorization: `Bearer ${godTok}` } },
+      );
+      const users = await lookup.json();
+      if (users[0]?.id) {
+        await request.delete(
+          `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users/${users[0].id}`,
+          { headers: { Authorization: `Bearer ${godTok}` } },
+        );
+      }
+    }
+  });
+
+  test('INVITE: body validation — missing tenantId / email / bad email shape → 400', async ({ request }) => {
+    const godTok = await mintMasterJwt(request);
+    const cases: Array<{ name: string; body: Record<string, string> }> = [
+      { name: 'missing both', body: {} },
+      { name: 'missing email', body: { tenantId: `${ROOT_TENANT}.x` } },
+      { name: 'missing tenantId', body: { email: 'foo@bar.com' } },
+      { name: 'bad email shape', body: { tenantId: `${ROOT_TENANT}.x`, email: 'not-an-email' } },
+    ];
+    for (const c of cases) {
+      const resp = await request.post(
+        `${PLATFORM_ADMIN_BASE}/scoped-admins/_invite`,
+        {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${godTok}` },
+          data: c.body,
+        },
+      );
+      expect(resp.status(), `expected 400 for "${c.name}"`).toBe(400);
+      const body = await resp.json();
+      expect(body.error).toBe('bad_request');
+    }
+  });
+
+  test('INVITE: happy path — creates KC user with UPDATE_PASSWORD action + scoped role', async ({ request }) => {
+    const godTok = await mintMasterJwt(request);
+    invitedTenant = `${ROOT_TENANT}.pwinv${Date.now().toString().slice(-7)}b`;
+    const inviteEmail = `pw-invite-${Date.now().toString(36)}@example.test`;
+
+    const resp = await request.post(
+      `${PLATFORM_ADMIN_BASE}/scoped-admins/_invite`,
+      {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${godTok}` },
+        data: { email: inviteEmail, tenantId: invitedTenant },
+      },
+    );
+    // Either 201 (newly created) or 200 (already-existed, role re-applied).
+    // The shape we care about is identical in both.
+    expect([200, 201]).toContain(resp.status());
+    const body = await resp.json();
+    expect(body.username).toBe(inviteEmail);
+    expect(body.email).toBe(inviteEmail);
+    expect(body.tenantId).toBe(invitedTenant);
+    expect(body.role).toBe(`bootstrap:${invitedTenant}`);
+    // inviteSent is a deployment-state property (SMTP configured or not).
+    // Don't gate the test on it; both shapes must be present though.
+    expect(['boolean']).toContain(typeof body.inviteSent);
+    invitedUsername = body.username;
+
+    // Verify the KC-side user shape directly via admin REST. This is the
+    // load-bearing assertion — what we promise to operators is "after a
+    // 200 from _invite, the user exists with UPDATE_PASSWORD pending
+    // AND the bootstrap:<tenant> role". SMTP failures don't change that.
+    const lookup = await request.get(
+      `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users?username=${encodeURIComponent(inviteEmail)}&exact=true`,
+      { headers: { Authorization: `Bearer ${godTok}` } },
+    );
+    expect(lookup.ok()).toBeTruthy();
+    const users = await lookup.json();
+    expect(users.length).toBe(1);
+    const kcUser = users[0] as {
+      id: string;
+      email: string;
+      emailVerified: boolean;
+      enabled: boolean;
+      requiredActions: string[];
+    };
+    expect(kcUser.email).toBe(inviteEmail);
+    expect(kcUser.enabled, 'invited user must be enabled (so they can complete the action)').toBe(true);
+    expect(kcUser.emailVerified, 'invited user has not verified yet').toBe(false);
+    expect(
+      kcUser.requiredActions,
+      'KC must have UPDATE_PASSWORD pending so first login forces password set',
+    ).toContain('UPDATE_PASSWORD');
+
+    // And verify the realm role mapping.
+    const roleMappings = await request.get(
+      `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users/${kcUser.id}/role-mappings/realm`,
+      { headers: { Authorization: `Bearer ${godTok}` } },
+    );
+    expect(roleMappings.ok()).toBeTruthy();
+    const roles = (await roleMappings.json()) as Array<{ name: string }>;
+    expect(roles.map((r) => r.name)).toContain(`bootstrap:${invitedTenant}`);
+  });
+
+  test('LIST: GET /scoped-admins returns invited user with Pending-invite shape', async ({ request }) => {
+    expect(invitedUsername, 'invite test must run first').toBeTruthy();
+    const godTok = await mintMasterJwt(request);
+    const resp = await request.get(`${PLATFORM_ADMIN_BASE}/scoped-admins`, {
+      headers: { Authorization: `Bearer ${godTok}` },
+    });
+    expect(resp.ok()).toBeTruthy();
+    const body = (await resp.json()) as {
+      count: number;
+      scopedAdmins: Array<{
+        username: string;
+        email: string;
+        tenantId: string;
+        emailVerified: boolean;
+        requiredActions: string[];
+      }>;
+    };
+    expect(body.count).toBeGreaterThan(0);
+    const ours = body.scopedAdmins.find((a) => a.username === invitedUsername);
+    expect(ours, `freshly invited admin ${invitedUsername} not in list`).toBeTruthy();
+    expect(ours!.tenantId).toBe(invitedTenant);
+    expect(ours!.emailVerified).toBe(false);
+    expect(ours!.requiredActions).toContain('UPDATE_PASSWORD');
+  });
+
+  test('LIST: scoped admin cannot list (god-only)', async ({ request }) => {
+    const godTok = await mintMasterJwt(request);
+    // Mint a one-off scoped admin
+    const tenant = `${ROOT_TENANT}.pwinvlist${Date.now().toString().slice(-5)}`;
+    const cred = await request
+      .post(`${PLATFORM_ADMIN_BASE}/scoped-admins/_create`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${godTok}` },
+        data: { tenantId: tenant },
+      })
+      .then((r) => r.json());
+
+    try {
+      const scopedTok = await mintScopedJwt(request, cred.username, cred.password);
+      const resp = await request.get(`${PLATFORM_ADMIN_BASE}/scoped-admins`, {
+        headers: { Authorization: `Bearer ${scopedTok}` },
+      });
+      expect(resp.status()).toBe(403);
+      const body = await resp.json();
+      expect(body.message).toMatch(/god-mode/i);
+    } finally {
+      // Cleanup
+      const lookup = await request.get(
+        `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users?username=${encodeURIComponent(cred.username)}&exact=true`,
+        { headers: { Authorization: `Bearer ${godTok}` } },
+      );
+      const users = await lookup.json();
+      if (users[0]?.id) {
+        await request.delete(
+          `${KC_BASE}/admin/realms/${KC_MASTER_REALM}/users/${users[0].id}`,
+          { headers: { Authorization: `Bearer ${godTok}` } },
+        );
+      }
+    }
+  });
+});
+
+/**
  * egov-enc-service — POST /crypto/v1/_generatekey
  *
  * Validates the on-demand key-provisioning endpoint from Digit-Core #1354.

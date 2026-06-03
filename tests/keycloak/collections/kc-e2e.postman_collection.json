@@ -369,13 +369,39 @@
           "name": "2.1 Enable Direct Access Grants (for Postman)",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// KC client PUT is REPLACE-not-merge — sending a hardcoded body would",
+                  "// clobber the deploy-time redirectUris/webOrigins/rootUrl etc. (this",
+                  "// regressed Google SSO on bomet — the literal symptom that motivated",
+                  "// switching to GET-mutate-PUT). Pre-fetch the current client config,",
+                  "// flip directAccessGrantsEnabled to true, hand the result to the PUT.",
+                  "const url = pm.collectionVariables.get('keycloakUrl')",
+                  "  + '/admin/realms/' + pm.collectionVariables.get('testRealm')",
+                  "  + '/clients/' + pm.collectionVariables.get('digitUiClientUuid');",
+                  "pm.sendRequest({",
+                  "  url: url,",
+                  "  method: 'GET',",
+                  "  header: { 'Authorization': 'Bearer ' + pm.collectionVariables.get('adminToken') }",
+                  "}, function (err, res) {",
+                  "  if (err) { console.error('GET digit-ui failed:', err); return; }",
+                  "  const client = res.json();",
+                  "  client.directAccessGrantsEnabled = true;",
+                  "  pm.collectionVariables.set('digitUiClientBody', JSON.stringify(client));",
+                  "});"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
                   "pm.test('Client updated (204)', function () {",
                   "    pm.response.to.have.status(204);",
                   "});",
-                  "console.log('Direct access grants enabled on digit-ui for Postman testing');"
+                  "console.log('Direct access grants enabled on digit-ui (redirectUris preserved via GET-mutate-PUT)');"
                 ],
                 "type": "text/javascript"
               }
@@ -389,7 +415,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"clientId\": \"digit-ui\",\n  \"publicClient\": true,\n  \"standardFlowEnabled\": true,\n  \"directAccessGrantsEnabled\": true,\n  \"implicitFlowEnabled\": false,\n  \"protocol\": \"openid-connect\",\n  \"redirectUris\": [\"http://localhost:*\", \"https://*.egov.theflywheel.in/*\"],\n  \"webOrigins\": [\"http://localhost:3000\", \"http://localhost:5173\", \"https://*.egov.theflywheel.in\"],\n  \"attributes\": { \"pkce.code.challenge.method\": \"S256\" },\n  \"defaultClientScopes\": [\"web-origins\", \"profile\", \"roles\", \"email\", \"groups\"]\n}"
+              "raw": "{{digitUiClientBody}}"
             },
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{testRealm}}/clients/{{digitUiClientUuid}}",
@@ -1396,13 +1422,38 @@
           "name": "6.3 Leave Direct Access Grants ENABLED (overlay needs it)",
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Same GET-mutate-PUT pattern as 2.1 — never send a hardcoded body",
+                  "// to the client endpoint, because PUT replaces the entire client",
+                  "// representation and would silently wipe the deploy-time",
+                  "// redirectUris (the exact bug that took out Google SSO on bomet).",
+                  "const url = pm.collectionVariables.get('keycloakUrl')",
+                  "  + '/admin/realms/' + pm.collectionVariables.get('testRealm')",
+                  "  + '/clients/' + pm.collectionVariables.get('digitUiClientUuid');",
+                  "pm.sendRequest({",
+                  "  url: url,",
+                  "  method: 'GET',",
+                  "  header: { 'Authorization': 'Bearer ' + pm.collectionVariables.get('adminToken') }",
+                  "}, function (err, res) {",
+                  "  if (err) { console.error('GET digit-ui failed:', err); return; }",
+                  "  const client = res.json();",
+                  "  client.directAccessGrantsEnabled = true;",
+                  "  pm.collectionVariables.set('digitUiClientBody', JSON.stringify(client));",
+                  "});"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "exec": [
                   "pm.test('Client updated (204)', function () {",
                   "    pm.response.to.have.status(204);",
                   "});",
-                  "console.log('digit-ui left with directAccessGrantsEnabled=true. The overlay (token-exchange-svc) password-grant path requires it; turning it off would 400 every overlay-driven login with unauthorized_client.');"
+                  "console.log('digit-ui left with directAccessGrantsEnabled=true (deploy-time redirectUris preserved). The overlay (token-exchange-svc) password-grant path requires direct grants on; turning it off would 400 every overlay login with unauthorized_client.');"
                 ],
                 "type": "text/javascript"
               }
@@ -1416,7 +1467,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"clientId\": \"digit-ui\",\n  \"publicClient\": true,\n  \"standardFlowEnabled\": true,\n  \"directAccessGrantsEnabled\": true,\n  \"implicitFlowEnabled\": false,\n  \"protocol\": \"openid-connect\",\n  \"redirectUris\": [\"http://localhost:*\", \"https://*.egov.theflywheel.in/*\"],\n  \"webOrigins\": [\"http://localhost:3000\", \"http://localhost:5173\", \"https://*.egov.theflywheel.in\"],\n  \"attributes\": { \"pkce.code.challenge.method\": \"S256\" },\n  \"defaultClientScopes\": [\"web-origins\", \"profile\", \"roles\", \"email\", \"groups\"]\n}"
+              "raw": "{{digitUiClientBody}}"
             },
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{testRealm}}/clients/{{digitUiClientUuid}}",
