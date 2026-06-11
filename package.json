@@ -27,6 +27,7 @@
     "@playwright/test": "^1.59.1",
     "@types/node": "^20.11.0",
     "exceljs": "^4.4.0",
+    "newman": "^6.2.2",
     "ts-morph": "^28.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.4.0"
