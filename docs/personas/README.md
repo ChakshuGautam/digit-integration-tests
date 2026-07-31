@@ -7,8 +7,8 @@ tree (`tests/<persona>/`) in step with the live UI.
 | Persona | Catalogue | Spec dir |
 |---|---|---|
 | Citizen | [citizen-flows.md](./citizen-flows.md) | `tests/citizen/` |
-| Employee | _TODO_ | `tests/employee/` |
-| Admin (configurator) | _TODO_ | `tests/admin/` |
+| Employee | [employee-flows.md](./employee-flows.md) | `tests/employee/` |
+| Admin (configurator) | [admin-flows.md](./admin-flows.md) | `tests/admin/` |
 
 When a flow changes (new wizard step, route rename, removed screen),
 update the corresponding catalogue in the same PR as the spec change so

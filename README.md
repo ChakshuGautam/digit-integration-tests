@@ -150,6 +150,7 @@ existing persona spec, not a new dated tree.
 
 - `login.spec.ts` — token + UI session injection
 - `pgr-fixes-2026-04-29.spec.ts` — assign workflow, role filter, REJECT reasons
+- `profile-fixes-2026-04-30.spec.ts` — profile image upload (CCRS#445, 5 MB cap)
 
 ### `tests/admin/`
 
@@ -159,7 +160,9 @@ regression checks:
 `employees`, `users`, `tenants`, `boundary-hierarchies`, `localization`,
 `theme-editor`, `theme-applied`, `target-tenant-onboarding`,
 `pgr-dashboard`, `hardcoding`, `recently-shipped-fixes`,
-`configurator-mdms-fixes-2026-04-29`.
+`configurator-mdms-fixes-2026-04-29`,
+`configurator-fixes-2026-04-30` (CCRS#459/#460/#461/#462/#467/#468/#476),
+`cms-create-complaint-fixes-2026-04-30` (CCRS#437).
 
 Specs that create data use a `PW_${hash}_${kind}` prefix and an
 `afterAll` that soft-deletes via the helpers (`mdms _update isActive=false`
